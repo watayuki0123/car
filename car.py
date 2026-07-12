@@ -134,8 +134,8 @@ def calc_toyota_rent(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=12:base=num[2]
     elif th<=24:base=num[3]
     else:base=num[3]+((th//24)-1)*num[4]+min((th%24)*num[5],num[4])
-    gas=(d/FUEL_EFFICIENCY)*GAS_PRICE;ins=days*p['p_ins']if use_ins else 0;total=base+gas+ins
-    if return_breakdown:return total,f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
+    gas=(d/FUEL_EFFICIENCY)*GAS_PRICE;ins=days*p['p_ins']if use_ins else 0;total=base*0.8+gas+ins
+    if return_breakdown:return total,f"・基本(期間含)(学割2割引き): {int(base*0.8):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 def calc_uqey(h,d,start_dt,use_ins,params,return_breakdown=False):
     p=params['uqey']['normal'];th=math.ceil(h);days=math.ceil(th/24)
