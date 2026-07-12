@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="レンタカー最安値マップ",layout="wide")
 st.title("北海道レンタカー・カーシェア最安値マップ")
 st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。このマップは北大周辺に居住し、大学生である人に向けて作ったものです。車代の情報は2026/7/11のもので2027/3以降は正常に動作しません。")
-GAS_PRICE,FUEL_EFFICIENCY=170,15
+GAS_PRICE,FUEL_EFFICIENCY=170,25
 @st.cache_data(show_spinner=False)
 def load_parameters(filepath="parameters.xlsx",pax=5):
     try:
