@@ -107,8 +107,9 @@ def calc_nissan_rent(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=24:base=num[2]
     else:base=num[2]+((th//24)-1)*num[1]+min((th%24)*num[3],num[1])
     if(429<=md<=506)or(919<=md<=923)or(1010<=md<=1012)or(1121<=md<=1123)or(1228<=md)or(md<=105)or(109<=md<=111)or(320<=md<=322):base+=days*p['p_hs_surcharge']
+    base=base*0.8
     gas=(d/FUEL_EFFICIENCY)*GAS_PRICE;ins=days*p['p_ins']if use_ins else 0;total=base+gas+ins
-    if return_breakdown:return total,f"・基本(割増含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
+    if return_breakdown:return total,f"・基本(割増含)(セルフライドゴー20%引き): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 def calc_budget_rent(h,d,start_dt,use_ins,params,return_breakdown=False):
     th,md=math.ceil(h),start_dt.month*100+start_dt.day;days=math.ceil(th/24)
