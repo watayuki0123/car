@@ -81,7 +81,7 @@ def calc_nippon_rent(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=24:base=num[2]
     else:base=num[2]+((th//24)-1)*num[4]+min((th%24)*num[3],num[4])
     gas=(d/FUEL_EFFICIENCY)*GAS_PRICE;ins=days*p['p_ins']if use_ins else 0;total=base+gas+ins
-    if return_breakdown:return total,f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
+    if return_breakdown:return total,f"・基本(期間含)(三井のカーシェア経由で17%引き): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 def calc_orix_rent(h,d,start_dt,use_ins,params,return_breakdown=False):
     th,md=math.ceil(h),start_dt.month*100+start_dt.day;days=math.ceil(th/24)
@@ -93,6 +93,7 @@ def calc_orix_rent(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=12:base=num[1]
     elif th<=24:base=num[2]
     else:base=num[2]+((th//24)-1)*num[4]+min((th%24)*num[3],num[4])
+    base=base*0.83
     gas=(d/FUEL_EFFICIENCY)*GAS_PRICE;ins=days*p['p_ins']if use_ins else 0;total=base+gas+ins
     if return_breakdown:return total,f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
