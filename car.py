@@ -59,7 +59,7 @@ def calc_mitsui_share(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=12:time_charge=min(p['p_6h']+(th-6)*p['p_hr1'],p['p_12h'])
     elif th<=24:time_charge=min(p['p_12h']+(th-12)*p['p_hr1'],p['p_24h'])
     else:time_charge=(math.floor(th/24)*p['p_24h'])+min((th%24)*p['p_hr1'],p['p_24h'])
-    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:base=min(base,p['p_night'])
+    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:base=min(time_charge,p['p_night'])
     dist_charge=d*(p['p_dist']if th>6 else 0);ins_charge=math.ceil(th/24)*p['p_ins']if use_ins else 0;total=time_charge+dist_charge+ins_charge
     if return_breakdown:return total,f"・時間料金: {int(time_charge):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
