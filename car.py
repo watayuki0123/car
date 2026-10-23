@@ -38,8 +38,12 @@ def calc_orix_share(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif remain_th<=12:remain_base=min(p['p_6h']+(remain_th-6)*p['p_hr1'],p['p_12h'])
     else:remain_base=min(p['p_12h']+(remain_th-12)*p['p_hr1'],p['p_24h'])
     base=(days*p['p_24h'])+remain_base
-    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:base=min(base,p['p_night'])
-    dist_charge=0 if th<=6 else d*p['p_dist'];ins_charge=math.ceil(th/24)*p['p_ins']if use_ins else 0;total=base+dist_charge+ins_charge
+    dist_charge=0 if th<=6 else d*p['p_dist'];
+    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:
+        if((base+dist_charge)>=(p['p_night']+d*p['p_dist'])):
+            base=p['p_night']
+            dist_charge=d*p['p_dist']
+    ins_charge=math.ceil(th/24)*p['p_ins']if use_ins else 0;total=base+dist_charge+ins_charge
     if return_breakdown:return total,f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
 def calc_toyota_share(h,d,start_dt,use_ins,params,return_breakdown=False):
@@ -59,7 +63,7 @@ def calc_mitsui_share(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=12:time_charge=min(p['p_6h']+(th-6)*p['p_hr1'],p['p_12h'])
     elif th<=24:time_charge=min(p['p_12h']+(th-12)*p['p_hr1'],p['p_24h'])
     else:time_charge=(math.floor(th/24)*p['p_24h'])+min((th%24)*p['p_hr1'],p['p_24h'])
-    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:base=min(time_charge,p['p_night'])
+    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:time_charge=min(time_charge,p['p_night'])
     dist_charge=d*(p['p_dist']if th>6 else 0);ins_charge=math.ceil(th/24)*p['p_ins']if use_ins else 0;total=time_charge+dist_charge+ins_charge
     if return_breakdown:return total,f"・時間料金: {int(time_charge):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
