@@ -170,7 +170,7 @@ def generate_map_data(max_hours,max_dist,start_dt,use_insurance_flag,selected_co
     return H,D,Z_winner,hover_text,active_colors,names_array
 with st.sidebar:
     st.header("⚙️条件");pax=st.selectbox("乗車人数",[2,3,4,5,6,7,8],index=3)
-    start_dt=datetime.combine(st.date_input("出発日",value=datetime(2026,8,10)),st.time_input("出発時刻",value=datetime.strptime("10:00","%H:%M").time()))
+    start_dt=datetime.combine(st.date_input("出発日",value=datetime.now()),st.time_input("出発時刻",value=datetime.strptime("10:00","%H:%M").time()))
     use_ins=st.checkbox("フルサポート保険",value=True)
     max_hours=st.number_input("最大時間(h)",12,720,72,12);max_dist=st.number_input("最大距離(km)",100,5000,1000,100)
     selected_comps=st.multiselect("比較会社",options=list(all_companies.keys()),default=list(all_companies.keys()),format_func=lambda x:all_companies[x]['label'])
