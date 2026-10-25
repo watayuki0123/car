@@ -28,7 +28,7 @@ def calc_times_car(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=48:base=min(p['p_36h']+(th-36)*p['p_hr1'],p['p_48h'])
     elif th<=72:base=min(p['p_48h']+(th-48)*p['p_hr1'],p['p_72h'])
     else:base=p['p_72h']+((th-72)//24)*p['p_ex_day']+min(((th-72)%24)*p['p_hr1'],p['p_ex_day'])
-    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:base=min(base,p['p_night'])
+    if (start_dt.hour>=18 and end_dt.hour<=9 and(end_dt.date()-start_dt.date()).days==1) or ((start_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days==0):base=min(base,p['p_night'])
     dist_charge=max(0,d-20)*p['p_dist'];ins_charge=p['p_ins']if use_ins else 0;total=base+dist_charge+ins_charge
     if return_breakdown:return total,f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
@@ -40,7 +40,7 @@ def calc_orix_share(h,d,start_dt,use_ins,params,return_breakdown=False):
     else:remain_base=min(p['p_12h']+(remain_th-12)*p['p_hr1'],p['p_24h'])
     base=(days*p['p_24h'])+remain_base
     dist_charge=0 if th<=6 else d*p['p_dist'];
-    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:
+    if (start_dt.hour>=18 and end_dt.hour<=9 and(end_dt.date()-start_dt.date()).days==1) or ((start_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days==0):
         if((base+dist_charge)>=(p['p_night']+d*p['p_dist'])):
             base=p['p_night']
             dist_charge=d*p['p_dist']
@@ -64,7 +64,7 @@ def calc_mitsui_share(h,d,start_dt,use_ins,params,return_breakdown=False):
     elif th<=12:time_charge=min(p['p_6h']+(th-6)*p['p_hr1'],p['p_12h'])
     elif th<=24:time_charge=min(p['p_12h']+(th-12)*p['p_hr1'],p['p_24h'])
     else:time_charge=(math.floor(th/24)*p['p_24h'])+min((th%24)*p['p_hr1'],p['p_24h'])
-    if (start_dt.hour>=18 or start_dt.hour<=9) and (end_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days<=1:time_charge=min(time_charge,p['p_night'])
+    if (start_dt.hour>=18 and end_dt.hour<=9 and(end_dt.date()-start_dt.date()).days==1) or ((start_dt.hour>=18 or end_dt.hour<=9) and(end_dt.date()-start_dt.date()).days==0):time_charge=min(time_charge,p['p_night'])
     dist_charge=d*(p['p_dist']if th>6 else 0);ins_charge=math.ceil(th/24)*p['p_ins']if use_ins else 0;total=time_charge+dist_charge+ins_charge
     if return_breakdown:return total,f"・時間料金: {int(time_charge):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
