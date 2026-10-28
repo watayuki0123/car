@@ -116,6 +116,8 @@ def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc
     ins = days * p['p_ins'] if use_ins else 0
     hs_charge = (hs - 1) * 1100 + p['p_hs_surcharge']
     total = base + gas + ins + hs_charge
+    if( (p['open_time'] > start_dt) or (p['close_time'] > start_dt+timedelta(hours=h)){
+       return 9999999999, f"営業時間外です。"
     if return_breakdown:
         return total, f"・基本: {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円\n・割増: {int(hs_charge):,}円"
     return total
@@ -315,6 +317,7 @@ with st.sidebar:
     )
     max_hours = st.number_input("最大時間(h)", 12, 720, 72, 12)
     max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100)
+    
     selected_comps = st.multiselect(
         "比較会社",
         options=list(all_companies.keys()),
