@@ -322,13 +322,73 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
 
     return H, D, Z_winner, hover_text, active_colors, names_array
 
+# --- コールバック関数の定義（サイドバー描画の前に配置します） ---
+# 1. アプリ起動時の初期値セット
+if "sync_init" not in st.session_state:
+    now = datetime.now(ZoneInfo("Asia/Tokyo"))
+    st.session_state.start_d = now.date()
+    st.session_state.start_t = datetime.strptime("10:00", "%H:%M").time()
+    st.session_state.max_h = 72
+    e_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t) + timedelta(hours=72)
+    st.session_state.end_d = e_dt.date()
+    st.session_state.end_t = e_dt.time()
+    st.session_state.sync_init = True
+# 2. 出発日時が変更された場合（利用時間を維持したまま、返却日時をずらす）
+def sync_from_start():
+    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
+    st.session_state.end_d = e_dt.date()
+    st.session_state.end_t = e_dt.time()
+# 3. 最大時間が変更された場合（出発日時を維持したまま、返却日時をずらす）
+def sync_from_hours():
+    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
+    st.session_state.end_d = e_dt.date()
+    st.session_state.end_t = e_dt.time()
+# 4. 返却日時が変更された場合（出発日時を維持したまま、最大時間を再計算する）
+def sync_from_end():
+    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    e_dt = datetime.combine(st.session_state.end_d, st.session_state.end_t)
+    diff_hours = (e_dt - s_dt).total_seconds() / 3600.0
+    # 制限: 12時間〜720時間に収める
+    if diff_hours < 12:
+        diff_hours = 12
+        e_dt = s_dt + timedelta(hours=12)
+        st.session_state.end_d = e_dt.date()
+        st.session_state.end_t = e_dt.time()
+    elif diff_hours > 720:
+        diff_hours = 720
+        e_dt = s_dt + timedelta(hours=720)
+        st.session_state.end_d = e_dt.date()
+        st.session_state.end_t = e_dt.time() 
+    st.session_state.max_h = int(diff_hours)
+
+
 with st.sidebar:
     st.header("⚙️条件")
     pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3)
-    start_dt = datetime.combine(
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.date_input("出発日", key="start_d", on_change=sync_from_start)
+    with col2:
+        st.time_input("出発時刻", key="start_t", on_change=sync_from_start)
+    start_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    st.caption("または返却日時を指定")
+    col3, col4 = st.columns(2)
+    with col3:
+        st.date_input("返却日", key="end_d", on_change=sync_from_end)
+    with col4:
+        st.time_input("返却時刻", key="end_t", on_change=sync_from_end)
+    max_hours = st.number_input(
+        "最大時間(h)", min_value=12, max_value=720, step=12,
+        key="max_h", on_change=sync_from_hours
+    )
+    
+    '''start_dt = datetime.combine(
         st.date_input("出発日", value=datetime.now(ZoneInfo("Asia/Tokyo"))),
         st.time_input("出発時刻", value=datetime.strptime("10:00", "%H:%M").time())
-    )
+    )'''
     use_ins = st.toggle("フルサポート保険", value=True)
     consider_biz_hours = st.toggle("営業時間を考慮する", value=True)
     options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
