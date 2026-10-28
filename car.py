@@ -326,6 +326,7 @@ with st.sidebar:
     )
 
 params = load_parameters("parameters.xlsx", pax)
+print("orix_rの通常シーズンの辞書:", params.get('orix_r', {}).get('normal', {}))
 if not params:
     st.error("Excelエラー")
     st.stop()
