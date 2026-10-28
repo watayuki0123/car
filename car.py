@@ -378,21 +378,57 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
 
 
 # ==========================================
-# ⚙️ 設定画面（全画面）
+# 3. 設定画面（全画面表示）
 # ==========================================
 if st.session_state.current_page == "settings":
     st.title("⚙️ 詳細設定")
     st.markdown("適用する割引をONにしてください。（設定は自動で保存され、再読み込みしても引き継がれます）")
+    st.write("") # 少し余白をあける
+
+    # 設定画面専用のCSS（カードの角丸化とホバー時の浮き上がりアニメーション）
+    st.markdown("""
+    <style>
+    div[data-testid="stContainer"] {
+        border-radius: 12px !important;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+        background-color: rgba(30, 30, 30, 0.4);
+    }
+    div[data-testid="stContainer"]:hover {
+        transform: translateX(4px);
+        border-color: #888888 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # プレート（カード）を描画する共通関数
+    def draw_setting_card(title, desc, key, color):
+        with st.container(border=True):
+            # 左側に文字、右側にトグルを配置するレイアウト
+            c1, c2 = st.columns([5, 1])
+            with c1:
+                # 左端のカラーラインと文字の装飾
+                st.markdown(f"""
+                <div style="border-left: 6px solid {color}; padding-left: 16px; margin: 4px 0;">
+                    <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 4px;">{title}</div>
+                    <div style="font-size: 0.9rem; color: #aaaaaa;">{desc}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            with c2:
+                # トグルの高さを左のテキストと中央揃えにするための余白
+                st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
+                # ラベルを非表示（collapsed）にしてスイッチ単体だけをスタイリッシュに置く
+                st.toggle("適用", key=key, on_change=update_discount_params, label_visibility="collapsed")
+
+    # 各社のプレートを描画（左端のライン色はマップのテーマカラーと完全に統一）
+    draw_setting_card("トヨタレンタカー 学割", "基本料金から 20%OFF", "d_toyota", "#34495e")
+    draw_setting_card("日産レンタカー セルフライドゴー", "基本(割増含)から 10%OFF", "d_nissan", "#bcbd22")
+    draw_setting_card("オリックスレンタカー", "プライムメンバー等 17%OFF", "d_orix", "#9467bd")
+    draw_setting_card("ニッポンレンタカー", "三井のカーシェア経由 17%OFF", "d_nippon", "#8c564b")
     
-    st.toggle("トヨタレンタカー 学割 (20%OFF)", key="d_toyota", on_change=update_discount_params)
-    st.toggle("日産レンタカー セルフライドゴー (10%OFF)", key="d_nissan", on_change=update_discount_params)
-    st.toggle("オリックス プライムメンバー等 (17%OFF)", key="d_orix", on_change=update_discount_params)
-    st.toggle("ニッポンレンタカー 三井カーシェア経由 (17%OFF)", key="d_nippon", on_change=update_discount_params)
-    
-    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("◀ マップに戻る", type="primary"):
         st.session_state.current_page = "main"
-        st.rerun()  # 画面を切り替える
+        st.rerun()
         
 elif st.session_state.current_page == "main":
     st.title("北海道レンタカー・カーシェア最安値マップ")
