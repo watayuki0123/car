@@ -27,6 +27,11 @@ if "discounts_initialized" not in st.session_state:
     st.session_state.d_times_refuel = st.query_params.get("d_times_refuel", "False") == "True"
     st.session_state.d_times_wash = st.query_params.get("d_times_wash", "False") == "True"
     st.session_state.d_times_ticket = int(st.query_params.get("d_times_ticket", 0))
+
+    # ⬇️ 三井用の3つを追加
+    st.session_state.d_mitsui_refuel = st.query_params.get("d_mitsui_refuel", "False") == "True"
+    st.session_state.d_mitsui_wash = st.query_params.get("d_mitsui_wash", "False") == "True"
+    st.session_state.d_mitsui_ticket = int(st.query_params.get("d_mitsui_ticket", 0))
     
     st.session_state.discounts_initialized = True
 
@@ -39,6 +44,11 @@ def update_discount_params():
     st.query_params["d_times_refuel"] = str(st.session_state.d_times_refuel)
     st.query_params["d_times_wash"] = str(st.session_state.d_times_wash)
     st.query_params["d_times_ticket"] = str(st.session_state.d_times_ticket)
+
+    # ⬇️ 三井用の3つを追加
+    st.query_params["d_mitsui_refuel"] = str(st.session_state.d_mitsui_refuel)
+    st.query_params["d_mitsui_wash"] = str(st.session_state.d_mitsui_wash)
+    st.query_params["d_mitsui_ticket"] = str(st.session_state.d_mitsui_ticket)
 
 if "sync_init" not in st.session_state:
     now = datetime.now(ZoneInfo("Asia/Tokyo"))
@@ -467,16 +477,57 @@ if st.session_state.current_page == "settings":
             with c6:
                 # タイムズは15分単位の課金が多いので、step=15にしています
                 st.number_input("割引時間(分)", min_value=0, max_value=720, step=15, key="d_times_ticket", on_change=update_discount_params, label_visibility="collapsed")
-    
+    def draw_mitsui_setting_card():
+        with st.container(border=True):
+            # カードのタイトルと装飾（色は三井の緑 #2ca02c）
+            st.markdown(f"""
+            <div style="border-left: 6px solid #2ca02c; padding-left: 16px; margin-bottom: 16px;">
+                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 4px;">三井のシェア (緑) 割引設定</div>
+                <div style="font-size: 0.9rem; color: #aaaaaa;">給油・洗車やクーポンの適用</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 1. 給油割引
+            c1, c2 = st.columns([4, 1])
+            with c1:
+                st.markdown("<div style='font-weight: bold;'>⛽ 給油割引</div><div style='font-size: 0.8rem; color: #aaa;'>給油によるクーポン付与・割引</div>", unsafe_allow_html=True)
+            with c2:
+                st.markdown("<div style='margin-top: 4px;'></div>", unsafe_allow_html=True)
+                st.toggle("給油割引", key="d_mitsui_refuel", on_change=update_discount_params, label_visibility="collapsed")
+            
+            st.markdown("<hr style='margin: 12px 0; border: none; border-top: 1px solid #444;'>", unsafe_allow_html=True)
+            
+            # 2. 洗車割引
+            c3, c4 = st.columns([4, 1])
+            with c3:
+                st.markdown("<div style='font-weight: bold;'>🧽 洗車割引</div><div style='font-size: 0.8rem; color: #aaa;'>洗車報告によるクーポン付与・割引</div>", unsafe_allow_html=True)
+            with c4:
+                st.markdown("<div style='margin-top: 4px;'></div>", unsafe_allow_html=True)
+                st.toggle("洗車割引", key="d_mitsui_wash", on_change=update_discount_params, label_visibility="collapsed")
+                
+            st.markdown("<hr style='margin: 12px 0; border: none; border-top: 1px solid #444;'>", unsafe_allow_html=True)
+            
+            # 3. クーポン(金額)入力
+            c5, c6 = st.columns([3, 2])
+            with c5:
+                st.markdown("<div style='font-weight: bold;'>🎫 クーポン利用</div><div style='font-size: 0.8rem; color: #aaa;'>割引される金額（円）を入力してください</div>", unsafe_allow_html=True)
+            with c6:
+                # 三井は金額での割引が多いので step=100 円単位に設定
+                st.number_input("割引金額(円)", min_value=0, max_value=10000, step=100, key="d_mitsui_ticket", on_change=update_discount_params, label_visibility="collapsed")
+    def draw_info_card(title, desc, color):
+        with st.container(border=True):
+            st.markdown(f"""
+            <div style="border-left: 6px solid {color}; padding-left: 16px; margin: 4px 0;">
+                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 4px;">{title}</div>
+                <div style="font-size: 0.9rem; color: #aaaaaa;">{desc}</div>
+            </div>
+            """, unsafe_allow_html=True)
     # 各社のプレートを描画（左端のライン色はマップのテーマカラーと完全に統一）
     draw_times_setting_card()
-    draw_setting_card("タイムズ", "給油 ⇒ 30分の料金割引", "d_toyota", "#34495e")
-    draw_setting_card("タイムズ", "水洗い洗車 ⇒ 30分の料金割引", "d_toyota", "#34495e")
-    draw_setting_card("タイムズ", "クーポン使用(右に入力してください)", "d_toyota", "#34495e")
-    draw_setting_card("日産レンタカー セルフライドゴー", "基本(割増含)から 10%OFF", "d_nissan", "#bcbd22")
-    draw_setting_card("オリックスレンタカー", "プライムメンバー等 17%OFF", "d_orix", "#9467bd")
-    draw_setting_card("ニッポンレンタカー", "三井のカーシェア経由 17%OFF", "d_nippon", "#8c564b")
-    
+    draw_mitsui_setting_card()
+    draw_setting_card("オリックスシェア", "6時間以内の通常利用（15分単位の精算）のときだけ15分分の割引があります", "d_toyota", "#34495e")
+    draw_info_card("日産レンタカー", "おおよそ30%引きとして計算しています。", "#bcbd22")
+    draw_info_card("ニッポンレンタカー", "三井のカーシェア経由でおおよそ17%引きになるためそれで計算しています", "#8c564b")
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("◀ マップに戻る", type="primary"):
         st.session_state.current_page = "main"
