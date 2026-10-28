@@ -307,7 +307,13 @@ with st.sidebar:
         st.date_input("出発日", value=datetime.now(ZoneInfo("Asia/Tokyo"))),
         st.time_input("出発時刻", value=datetime.strptime("10:00", "%H:%M").time())
     )
-    use_ins = st.checkbox("フルサポート保険", value=True)
+    use_ins = st.toggle("フルサポート保険", value=True)
+    consider_biz_hours = st.toggle("営業時間を考慮する", value=True)
+    fuel_calc_mode = st.radio(
+        "ガソリン代の計算方式",
+        options=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"],
+        index=0
+    )
     max_hours = st.number_input("最大時間(h)", 12, 720, 72, 12)
     max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100)
     selected_comps = st.multiselect(
