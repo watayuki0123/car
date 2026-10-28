@@ -374,21 +374,16 @@ with st.sidebar:
     with col2:
         st.time_input("出発時刻", key="start_t", on_change=sync_from_start)
     start_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    st.caption("または返却日時を指定")
     col3, col4 = st.columns(2)
     with col3:
         st.date_input("返却日", key="end_d", on_change=sync_from_end)
     with col4:
         st.time_input("返却時刻", key="end_t", on_change=sync_from_end)
+    st.caption("返却時刻と最大時間は連動します。")
     max_hours = st.number_input(
         "最大時間(h)", min_value=12, max_value=720, step=12,
         key="max_h", on_change=sync_from_hours
     )
-    
-    '''start_dt = datetime.combine(
-        st.date_input("出発日", value=datetime.now(ZoneInfo("Asia/Tokyo"))),
-        st.time_input("出発時刻", value=datetime.strptime("10:00", "%H:%M").time())
-    )'''
     use_ins = st.toggle("フルサポート保険", value=True)
     consider_biz_hours = st.toggle("営業時間を考慮する", value=True)
     options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
