@@ -7,8 +7,41 @@ from zoneinfo import ZoneInfo
 import plotly.graph_objects as go
 
 st.set_page_config(page_title="レンタカー最安値マップ", layout="wide")
+# --- 割引設定の初期化と永続化ロジック ---
+if "discounts_initialized" not in st.session_state:
+    # URLに保存された設定を読み込む（なければデフォルトの True をセット）
+    st.session_state.d_toyota = st.query_params.get("d_toyota", "True") == "True"
+    st.session_state.d_nissan = st.query_params.get("d_nissan", "True") == "True"
+    st.session_state.d_orix = st.query_params.get("d_orix", "True") == "True"
+    st.session_state.d_nippon = st.query_params.get("d_nippon", "True") == "True"
+    st.session_state.discounts_initialized = True
+
+# 設定が変更されたときにURLを書き換える関数
+def update_discount_params():
+    st.query_params["d_toyota"] = str(st.session_state.d_toyota)
+    st.query_params["d_nissan"] = str(st.session_state.d_nissan)
+    st.query_params["d_orix"] = str(st.session_state.d_orix)
+    st.query_params["d_nippon"] = str(st.session_state.d_nippon)
 st.title("北海道レンタカー・カーシェア最安値マップ")
 st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。このマップは北大周辺に居住し、大学生である人に向けて作ったものです。車代の情報は2026/7/11のもので2027/3以降は正常に動作しません。")
+
+with st.popover("⚙️ 各社割引の詳細設定", use_container_width=False):
+    st.markdown("**適用する割引をONにしてください**\n\n*(設定はURLに保存されるため、ページを再読み込みしても維持されます)*")
+    
+    st.toggle("トヨタレンタカー 学割 (20%OFF)", key="d_toyota", on_change=update_discount_params)
+    st.toggle("日産レンタカー セルフライドゴー (10%OFF)", key="d_nissan", on_change=update_discount_params)
+    st.toggle("オリックス プライムメンバー等 (17%OFF)", key="d_orix", on_change=update_discount_params)
+    st.toggle("ニッポンレンタカー 三井カーシェア経由 (17%OFF)", key="d_nippon", on_change=update_discount_params)
+
+# 計算用に関数へ渡すためのセットを作成
+active_discounts = frozenset([
+    k for k, key in {
+        'toyota_gakuwari': 'd_toyota',
+        'nissan_self': 'd_nissan',
+        'orix_member': 'd_orix',
+        'nippon_mitsui': 'd_nippon'
+    }.items() if st.session_state[key]
+])
 
 GAS_PRICE, FUEL_EFFICIENCY = 167, 20
 GRID_SIZE = 60
