@@ -517,16 +517,106 @@ elif st.session_state.current_page == "main":
             bds = []
             for c_key in selected_comps:
                 c = all_companies[c_key]
-                pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, True)
-                bds.append((pr, c['label'], tx))
+                pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, True)
+                bds.append((pr, c['label'], tx, c['color']))
             bds.sort(key=lambda x: x[0])
-            cols = st.columns(3)
-            for i, (pr, lb, tx) in enumerate(bds):
-                with cols[i % 3]:
-                    if i == 0:
-                        st.success(f"👑 **{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
-                    else:
-                        st.info(f"**{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
+            
+            # --- カスタムCSSの定義 ---
+            st.markdown("""
+            <style>
+            .price-card {
+                background-color: #1e1e1e;
+                border-radius: 12px;
+                padding: 16px 24px;
+                margin-bottom: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                border-left: 8px solid transparent;
+                transition: transform 0.2s ease;
+            }
+            .price-card:hover {
+                transform: translateX(4px);
+            }
+            .rank-winner {
+                border-left-color: #ffd700; /* 1位はゴールド */
+                background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(30,30,30,1) 100%);
+            }
+            .card-left {
+                flex: 1;
+            }
+            .card-right {
+                text-align: right;
+                min-width: 150px;
+            }
+            .comp-name {
+                font-size: 1.2rem;
+                font-weight: bold;
+                color: #ffffff;
+                margin-bottom: 4px;
+            }
+            .breakdown {
+                font-size: 0.85rem;
+                color: #aaaaaa;
+                white-space: pre-wrap;
+            }
+            .total-price {
+                font-size: 1.8rem;
+                font-weight: 800;
+                color: #ffffff;
+            }
+            .split-price {
+                font-size: 0.9rem;
+                color: #888888;
+            }
+            .rank-badge {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 0.8rem;
+                font-weight: bold;
+                margin-right: 8px;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+
+            # --- カードの描画 ---
+            for i, (pr, lb, tx, color) in enumerate(bds):
+                # 営業時間外などのエラー値(9999999999)の判定
+                if pr >= 9999999999:
+                    pr_str = "利用不可"
+                    split_str = "営業時間外"
+                else:
+                    pr_str = f"¥{int(pr):,}"
+                    split_str = f"1人あたり: ¥{int(pr) // pax:,}"
+
+                # 1位だけ特別な装飾にする
+                winner_class = "rank-winner" if i == 0 else ""
+                badge_bg = "#ffd700" if i == 0 else "#444444"
+                badge_text = "#000000" if i == 0 else "#ffffff"
+                rank_str = "👑 1位" if i == 0 else f"{i+1}位"
+
+                # 改行コードをHTMLの<br>に変換
+                tx_html = tx.replace('\n', '<br>')
+
+                # HTMLでカードを組み立て
+                card_html = f"""
+                <div class="price-card {winner_class}" style="border-left-color: {color};">
+                    <div class="card-left">
+                        <div class="comp-name">
+                            <span class="rank-badge" style="background-color: {badge_bg}; color: {badge_text};">{rank_str}</span>
+                            {lb}
+                        </div>
+                        <div class="breakdown">{tx_html}</div>
+                    </div>
+                    <div class="card-right">
+                        <div class="total-price">{pr_str}</div>
+                        <div class="split-price">{split_str}</div>
+                    </div>
+                </div>
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
     # 既存の generate_map_data や render_map_and_details の呼び出しコードをここに置く
     # (※ active_discounts を忘れずに引数に渡す)
     render_map_and_details()
