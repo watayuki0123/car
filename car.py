@@ -59,7 +59,7 @@ def calc_orix_share(h, d, start_dt, use_ins, params, return_breakdown=False):
     elif remain_th <= 12: remain_base = min(p['p_6h'] + (remain_th - 6) * p['p_hr1'], p['p_12h'])
     else: remain_base = min(p['p_12h'] + (remain_th - 12) * p['p_hr1'], p['p_24h'])
     base = (days * p['p_24h']) + remain_base
-    dist_charge = 0 if th <= 6 else d * p['p_dist']
+    dist_charge = d * (0 if th <= 6 else p['p_dist'])
     is_night = (start_dt.hour >= 18 and end_dt.hour <= 9 and (end_dt.date() - start_dt.date()).days == 1) or ((start_dt.hour >= 18 or end_dt.hour <= 9) and (end_dt.date() - start_dt.date()).days == 0)
     ins_charge = math.ceil(th / 24) * p['p_ins'] if use_ins else 0
     if return_breakdown:
@@ -262,7 +262,7 @@ def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, pax):
     for comp_key, c in all_companies.items():
         f = c['func']
         # d_vec(配列)を直接渡すことで1社あたりGRID_SIZE回(60回)の呼び出しのみで2次元配列を生成
-        matrices[comp_key] = np.column_stack([f(h, d_vec, start_dt, use_ins, params) for h in h_vec]).astype(int)
+        matrices[comp_key] = np.column_stack([np.broadcast_to(f(h, d_vec, start_dt, use_ins, params), d_vec.shape) for h in h_vec]).astype(int)
     return H, D, matrices
 
 # 第2段階キャッシュ: 選択された会社の比較・ホバーテキスト生成
