@@ -116,8 +116,16 @@ def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
     dist_charge = np.maximum(0, d - 20) * p['p_dist']
     ins_charge = p['p_ins'] if use_ins else 0
     total = base + dist_charge + ins_charge
+    discount = 0
+    if 'times_refuel' in active_discounts: discount += p['p_hr1']/2
+    if 'times_wash' in active_discounts: discount += p['p_hr1']/2
+    if total-discount>=0:
+        total=total-discount
+    else:
+        discount=total
+        total=0
     if return_breakdown:
-        return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
+        return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円・割引: {-1*discount):,}円"
     return total
 
 def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
@@ -545,12 +553,26 @@ elif st.session_state.current_page == "main":
 
     # ここで計算用の active_discounts を定義しておく
     active_discounts = frozenset([
-        k for k, key in {
-            'toyota_gakuwari': 'd_toyota',
-            'nissan_self': 'd_nissan',
-            'orix_member': 'd_orix',
-            'nippon_mitsui': 'd_nippon'
-        }.items() if st.session_state[key]
+        # === 計算用にONになっている割引と数値を文字列のリストとしてまとめる ===
+        discounts = []
+        if st.session_state.get('d_toyota'): discounts.append('toyota_gakuwari')
+        if st.session_state.get('d_nissan'): discounts.append('nissan_self')
+        if st.session_state.get('d_orix'): discounts.append('orix_member')
+        if st.session_state.get('d_nippon'): discounts.append('nippon_mitsui')
+        
+        # タイムズ・三井のON/OFF
+        if st.session_state.get('d_times_refuel'): discounts.append('times_refuel')
+        if st.session_state.get('d_times_wash'): discounts.append('times_wash')
+        if st.session_state.get('d_mitsui_refuel'): discounts.append('mitsui_refuel')
+        if st.session_state.get('d_mitsui_wash'): discounts.append('mitsui_wash')
+        
+        # 数値（チケット等）は「名前_数値」という文字列にして格納する（キャッシュ対応のため）
+        if st.session_state.get('d_times_ticket', 0) > 0:
+            discounts.append(f"times_ticket_{st.session_state.d_times_ticket}")
+        if st.session_state.get('d_mitsui_ticket', 0) > 0:
+            discounts.append(f"mitsui_ticket_{st.session_state.d_mitsui_ticket}")
+            
+        active_discounts = frozenset(discounts)
     ])
     
     # 既存のサイドバーのコードをそのままここに置く
