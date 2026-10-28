@@ -140,6 +140,11 @@ def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
+    end_dt = start_dt + timedelta(hours=float(h))
+    if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
+        if return_breakdown:
+            return 9999999999, "営業時間外です。"
+        return 9999999999
     if return_breakdown:
         return total, f"・基本(期間含)(三井のカーシェア経由で17%引き): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
@@ -160,6 +165,11 @@ def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
+    end_dt = start_dt + timedelta(hours=float(h))
+    if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
+        if return_breakdown:
+            return 9999999999, "営業時間外です。"
+        return 9999999999
     if return_breakdown:
         return total, f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
@@ -200,6 +210,11 @@ def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
+    end_dt = start_dt + timedelta(hours=float(h))
+    if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
+        if return_breakdown:
+            return 9999999999, "営業時間外です。"
+        return 9999999999
     if return_breakdown:
         return total, f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
@@ -221,6 +236,11 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base * 0.8 + gas + ins
+    end_dt = start_dt + timedelta(hours=float(h))
+    if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
+        if return_breakdown:
+            return 9999999999, "営業時間外です。"
+        return 9999999999
     if return_breakdown:
         return total, f"・基本(期間含)(学割2割引き): {int(base * 0.8):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
