@@ -338,7 +338,7 @@ def render_map_and_details():
         return
 
     H, D, Z_winner, hover_text, active_colors, names_array = generate_map_data(
-        max_hours, max_dist, start_dt, use_ins, tuple(selected_comps), pax
+        max_hours, max_dist, start_dt, use_ins, selected_comps_tuple, consider_biz_hours, tuple(selected_comps), pax
     )
 
     sel_h, sel_d = None, None
@@ -389,7 +389,7 @@ def render_map_and_details():
         bds = []
         for c_key in selected_comps:
             c = all_companies[c_key]
-            pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, True)
+            pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, selected_comps_tuple, consider_biz_hours, True)
             bds.append((pr, c['label'], tx))
         bds.sort(key=lambda x: x[0])
         cols = st.columns(3)
