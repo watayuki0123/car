@@ -29,7 +29,7 @@ def load_parameters(filepath="parameters.xlsx", pax=5):
         return None
 
 # --- 各社計算関数（dにスカラーだけでなくNumPy配列も直接渡せるように対応） ---
-def calc_times_car(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     p = params['times']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 4) / 4
@@ -49,7 +49,7 @@ def calc_times_car(h, d, start_dt, use_ins, params, return_breakdown=False):
         return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
 
-def calc_orix_share(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     p = params['orix_s']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 4) / 4
@@ -72,7 +72,7 @@ def calc_orix_share(h, d, start_dt, use_ins, params, return_breakdown=False):
         return np.minimum(base + dist_charge, p['p_night'] + d * p['p_dist']) + ins_charge
     return base + dist_charge + ins_charge
 
-def calc_toyota_share(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_toyota_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     p = params['toyota_s']['normal']
     th = math.ceil(h * 4) / 4
     if th <= 6:
@@ -90,7 +90,7 @@ def calc_toyota_share(h, d, start_dt, use_ins, params, return_breakdown=False):
         return total, f"・時間＋距離: {int(time_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
 
-def calc_mitsui_share(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     p = params['mitsui_s']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 6) / 6
@@ -107,13 +107,13 @@ def calc_mitsui_share(h, d, start_dt, use_ins, params, return_breakdown=False):
         return total, f"・時間料金: {int(time_charge):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
 
-def calc_niconico(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     p = params['niconico']['normal']
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     base = p['p_12h'] if h <= 12 else p['p_24h'] * days
     hs = 1 if (425 <= md <= 506) or (1225 <= md) or (105 <= md) else 2 if (701 <= md <= 831) or (918 <= md <= 927) else 0
-    gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     hs_charge = (hs - 1) * 1100 + p['p_hs_surcharge']
     total = base + gas + ins + hs_charge
@@ -121,7 +121,7 @@ def calc_niconico(h, d, start_dt, use_ins, params, return_breakdown=False):
         return total, f"・基本: {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円\n・割増: {int(hs_charge):,}円"
     return total
 
-def calc_nippon_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (918 <= md <= 922) or (1009 <= md <= 1011) or (1225 <= md <= 1231) or (101 <= md <= 102): s = 'hs1'
@@ -133,14 +133,14 @@ def calc_nippon_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
     elif th <= 12: base = num[1]
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
-    gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
         return total, f"・基本(期間含)(三井のカーシェア経由で17%引き): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_orix_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (918 <= md <= 926) or (1225 <= md <= 1231) or (101 <= md <= 102) or (428 <= md <= 504): s = 'hs1'
@@ -153,14 +153,14 @@ def calc_orix_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
     base = base * 0.83
-    gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
         return total, f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_nissan_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if 701 <= md <= 831: s = 'summer'
@@ -175,14 +175,14 @@ def calc_nissan_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
     if (429 <= md <= 506) or (919 <= md <= 923) or (1010 <= md <= 1012) or (1121 <= md <= 1123) or (1228 <= md) or (md <= 105) or (109 <= md <= 111) or (320 <= md <= 322):
         base += days * p['p_hs_surcharge']
     base = base * 0.9
-    gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
         return total, f"・基本(割増含)(セルフライドゴー10%引き※仮): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_budget_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (701 <= md <= 831) or (918 <= md <= 922) or (1225 <= md) or (md <= 102): s = 'hs'
@@ -193,14 +193,14 @@ def calc_budget_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
     elif th <= 12: base = num[1]
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
-    gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
         return total, f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_toyota_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if 701 <= md <= 831: s = 'summer'
@@ -214,14 +214,14 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, return_breakdown=False):
     elif th <= 12: base = num[2]
     elif th <= 24: base = num[3]
     else: base = num[3] + ((th // 24) - 1) * num[4] + min((th % 24) * num[5], num[4])
-    gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base * 0.8 + gas + ins
     if return_breakdown:
         return total, f"・基本(期間含)(学割2割引き): {int(base * 0.8):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_uqey(h, d, start_dt, use_ins, params, return_breakdown=False):
+def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     p = params['uqey']['normal']
     th = math.ceil(h)
     days = math.ceil(th / 24)
@@ -230,7 +230,7 @@ def calc_uqey(h, d, start_dt, use_ins, params, return_breakdown=False):
     elif th <= 12: base = p['p_12h']
     elif th <= 24: base = p['p_24h']
     else: base = p['p_24h'] + (th // 24) * p['p_ex_day']
-    gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
@@ -262,7 +262,7 @@ def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, pax):
     for comp_key, c in all_companies.items():
         f = c['func']
         # d_vec(配列)を直接渡すことで1社あたりGRID_SIZE回(60回)の呼び出しのみで2次元配列を生成
-        matrices[comp_key] = np.column_stack([np.broadcast_to(f(h, d_vec, start_dt, use_ins, params), d_vec.shape) for h in h_vec]).astype(int)
+        matrices[comp_key] = np.column_stack([np.broadcast_to(f(h, d_vec, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode), d_vec.shape) for h in h_vec]).astype(int)
     return H, D, matrices
 
 # 第2段階キャッシュ: 選択された会社の比較・ホバーテキスト生成
@@ -309,9 +309,11 @@ with st.sidebar:
     )
     use_ins = st.toggle("フルサポート保険", value=True)
     consider_biz_hours = st.toggle("営業時間を考慮する", value=True)
+    options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
     fuel_calc_mode = st.radio(
         "ガソリン代の計算方式",
-        options=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"],
+        options=range(len(options_text)),
+        format_func=lambda x: options_text[x],
         index=0
     )
     max_hours = st.number_input("最大時間(h)", 12, 720, 72, 12)
