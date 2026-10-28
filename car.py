@@ -113,7 +113,7 @@ def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc
     days = math.ceil(th / 24)
     base = p['p_12h'] if h <= 12 else p['p_24h'] * days
     hs = 1 if (425 <= md <= 506) or (1225 <= md) or (105 <= md) else 2 if (701 <= md <= 831) or (918 <= md <= 927) else 0
-    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     hs_charge = (hs - 1) * 1100 + p['p_hs_surcharge']
     total = base + gas + ins + hs_charge
@@ -133,7 +133,7 @@ def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     elif th <= 12: base = num[1]
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
-    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
@@ -153,7 +153,7 @@ def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
     base = base * 0.83
-    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
@@ -175,7 +175,7 @@ def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     if (429 <= md <= 506) or (919 <= md <= 923) or (1010 <= md <= 1012) or (1121 <= md <= 1123) or (1228 <= md) or (md <= 105) or (109 <= md <= 111) or (320 <= md <= 322):
         base += days * p['p_hs_surcharge']
     base = base * 0.9
-    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
@@ -193,7 +193,7 @@ def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     elif th <= 12: base = num[1]
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
-    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
@@ -214,7 +214,7 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     elif th <= 12: base = num[2]
     elif th <= 24: base = num[3]
     else: base = num[3] + ((th // 24) - 1) * num[4] + min((th % 24) * num[5], num[4])
-    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base * 0.8 + gas + ins
     if return_breakdown:
@@ -230,7 +230,7 @@ def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mod
     elif th <= 12: base = p['p_12h']
     elif th <= 24: base = p['p_24h']
     else: base = p['p_24h'] + (th // 24) * p['p_ex_day']
-    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else gas = (d / FUEL_EFFICIENCY) * GAS_PRICE
+    gas = (d / p['fuel_efficiency']) * GAS_PRICE if consider_biz_hours==0 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     total = base + gas + ins
     if return_breakdown:
