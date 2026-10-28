@@ -11,7 +11,7 @@ st.title("北海道レンタカー・カーシェア最安値マップ")
 st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。このマップは北大周辺に居住し、大学生である人に向けて作ったものです。車代の情報は2026/7/11のもので2027/3以降は正常に動作しません。")
 
 GAS_PRICE, FUEL_EFFICIENCY = 167, 20
-GRID_SIZE = 60  # 100から60にすることで見た目を保ちつつ描画・通信負荷を約1/3に削減
+GRID_SIZE = 60
 
 @st.cache_data(show_spinner=False)
 def load_parameters(filepath="parameters.xlsx", pax=5):
@@ -28,7 +28,6 @@ def load_parameters(filepath="parameters.xlsx", pax=5):
     except Exception:
         return None
 
-# --- 各社計算関数（dにスカラーだけでなくNumPy配列も直接渡せるように対応） ---
 def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
     p = params['times']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
@@ -261,7 +260,6 @@ def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_ho
     matrices = {}
     for comp_key, c in all_companies.items():
         f = c['func']
-        # d_vec(配列)を直接渡すことで1社あたりGRID_SIZE回(60回)の呼び出しのみで2次元配列を生成
         matrices[comp_key] = np.column_stack([np.broadcast_to(f(h, d_vec, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode), d_vec.shape) for h in h_vec]).astype(int)
     return H, D, matrices
 
@@ -280,7 +278,6 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
     sorted_names = names_array[indices]
     sorted_splits = sorted_prices // pax
 
-    # ホバー文字列の高速生成（条件分岐をループ外に出し、一括結合）
     n_pts = H.size
     n_comps = len(selected_comps_tuple)
     sn_flat = sorted_names.reshape(n_pts, n_comps)
@@ -325,8 +322,7 @@ with st.sidebar:
         format_func=lambda x: all_companies[x]['label']
     )
 
-params = load_parameters("parameters.xlsx", pax)# 画面上に辞書の中身を綺麗に表示して確認する
-st.write("読み込んだ params の中身:", params)
+params = load_parameters("parameters.xlsx", pax)
 if not params:
     st.error("Excelエラー")
     st.stop()
