@@ -6,42 +6,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="レンタカー最安値マップ", layout="wide")
-# --- 割引設定の初期化と永続化ロジック ---
-if "discounts_initialized" not in st.session_state:
-    # URLに保存された設定を読み込む（なければデフォルトの True をセット）
-    st.session_state.d_toyota = st.query_params.get("d_toyota", "True") == "True"
-    st.session_state.d_nissan = st.query_params.get("d_nissan", "True") == "True"
-    st.session_state.d_orix = st.query_params.get("d_orix", "True") == "True"
-    st.session_state.d_nippon = st.query_params.get("d_nippon", "True") == "True"
-    st.session_state.discounts_initialized = True
+'''st.set_page_config(page_title="レンタカー最安値マップ", layout="wide")'''
 
-# 設定が変更されたときにURLを書き換える関数
-def update_discount_params():
-    st.query_params["d_toyota"] = str(st.session_state.d_toyota)
-    st.query_params["d_nissan"] = str(st.session_state.d_nissan)
-    st.query_params["d_orix"] = str(st.session_state.d_orix)
-    st.query_params["d_nippon"] = str(st.session_state.d_nippon)
-st.title("北海道レンタカー・カーシェア最安値マップ")
-st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。このマップは北大周辺に居住し、大学生である人に向けて作ったものです。車代の情報は2026/7/11のもので2027/3以降は正常に動作しません。")
-
-with st.popover("⚙️ 各社割引の詳細設定", use_container_width=False):
-    st.markdown("**適用する割引をONにしてください**\n\n*(設定はURLに保存されるため、ページを再読み込みしても維持されます)*")
-    
-    st.toggle("トヨタレンタカー 学割 (20%OFF)", key="d_toyota", on_change=update_discount_params)
-    st.toggle("日産レンタカー セルフライドゴー (10%OFF)", key="d_nissan", on_change=update_discount_params)
-    st.toggle("オリックス プライムメンバー等 (17%OFF)", key="d_orix", on_change=update_discount_params)
-    st.toggle("ニッポンレンタカー 三井カーシェア経由 (17%OFF)", key="d_nippon", on_change=update_discount_params)
-
-# 計算用に関数へ渡すためのセットを作成
-active_discounts = frozenset([
-    k for k, key in {
-        'toyota_gakuwari': 'd_toyota',
-        'nissan_self': 'd_nissan',
-        'orix_member': 'd_orix',
-        'nippon_mitsui': 'd_nippon'
-    }.items() if st.session_state[key]
-])
 
 GAS_PRICE, FUEL_EFFICIENCY = 167, 20
 GRID_SIZE = 60
@@ -355,87 +321,6 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
 
     return H, D, Z_winner, hover_text, active_colors, names_array
 
-# --- コールバック関数の定義（サイドバー描画の前に配置します） ---
-# 1. アプリ起動時の初期値セット
-if "sync_init" not in st.session_state:
-    now = datetime.now(ZoneInfo("Asia/Tokyo"))
-    st.session_state.start_d = now.date()
-    st.session_state.start_t = datetime.strptime("10:00", "%H:%M").time()
-    st.session_state.max_h = 72
-    e_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t) + timedelta(hours=72)
-    st.session_state.end_d = e_dt.date()
-    st.session_state.end_t = e_dt.time()
-    st.session_state.sync_init = True
-# 2. 出発日時が変更された場合（利用時間を維持したまま、返却日時をずらす）
-def sync_from_start():
-    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
-    st.session_state.end_d = e_dt.date()
-    st.session_state.end_t = e_dt.time()
-# 3. 最大時間が変更された場合（出発日時を維持したまま、返却日時をずらす）
-def sync_from_hours():
-    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
-    st.session_state.end_d = e_dt.date()
-    st.session_state.end_t = e_dt.time()
-# 4. 返却日時が変更された場合（出発日時を維持したまま、最大時間を再計算する）
-def sync_from_end():
-    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    e_dt = datetime.combine(st.session_state.end_d, st.session_state.end_t)
-    diff_hours = (e_dt - s_dt).total_seconds() / 3600.0
-    # 制限: 12時間〜720時間に収める
-    if diff_hours < 12:
-        diff_hours = 12
-        e_dt = s_dt + timedelta(hours=12)
-        st.session_state.end_d = e_dt.date()
-        st.session_state.end_t = e_dt.time()
-    elif diff_hours > 720:
-        diff_hours = 720
-        e_dt = s_dt + timedelta(hours=720)
-        st.session_state.end_d = e_dt.date()
-        st.session_state.end_t = e_dt.time() 
-    st.session_state.max_h = int(diff_hours)
-
-
-with st.sidebar:
-    st.header("⚙️条件")
-    pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.date_input("出発日", key="start_d", on_change=sync_from_start)
-    with col2:
-        st.time_input("出発時刻", key="start_t", on_change=sync_from_start)
-    start_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    col3, col4 = st.columns(2)
-    with col3:
-        st.date_input("返却日", key="end_d", on_change=sync_from_end)
-    with col4:
-        st.time_input("返却時刻", key="end_t", on_change=sync_from_end)
-    st.caption("返却時刻と最大時間は連動します。")
-    max_hours = st.number_input(
-        "最大時間(h)", min_value=12, max_value=720, step=12,
-        key="max_h", on_change=sync_from_hours
-    )
-    use_ins = st.toggle("フルサポート保険", value=True)
-    consider_biz_hours = st.toggle("営業時間を考慮する", value=True)
-    options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
-    fuel_calc_mode = st.radio(
-        "ガソリン代の計算方式",
-        options=range(len(options_text)),
-        format_func=lambda x: options_text[x],
-        index=0
-    )
-    max_hours = st.number_input("最大時間(h)", 12, 720, 72, 12)
-    max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100)
-    
-    selected_comps = st.multiselect(
-        "比較会社",
-        options=list(all_companies.keys()),
-        default=list(all_companies.keys()),
-        format_func=lambda x: all_companies[x]['label']
-    )
-
 params = load_parameters("parameters.xlsx", pax)
 if not params:
     st.error("Excelエラー")
@@ -510,5 +395,103 @@ def render_map_and_details():
                     st.success(f"👑 **{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
                 else:
                     st.info(f"**{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
+# --- 1. ページ状態と設定の初期化（URLパラメータで状態を保持） ---
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "main"
 
-render_map_and_details()
+if "discounts_initialized" not in st.session_state:
+    # URLに保存された設定を読み込む（なければデフォルトの True）
+    st.session_state.d_toyota = st.query_params.get("d_toyota", "True") == "True"
+    st.session_state.d_nissan = st.query_params.get("d_nissan", "True") == "True"
+    st.session_state.d_orix = st.query_params.get("d_orix", "True") == "True"
+    st.session_state.d_nippon = st.query_params.get("d_nippon", "True") == "True"
+    st.session_state.discounts_initialized = True
+
+def update_discount_params():
+    # トグルが操作されるたびにURLを書き換えて永続化する
+    st.query_params["d_toyota"] = str(st.session_state.d_toyota)
+    st.query_params["d_nissan"] = str(st.session_state.d_nissan)
+    st.query_params["d_orix"] = str(st.session_state.d_orix)
+    st.query_params["d_nippon"] = str(st.session_state.d_nippon)
+
+
+# ==========================================
+# ⚙️ 設定画面（全画面）
+# ==========================================
+if st.session_state.current_page == "settings":
+    st.title("⚙️ 詳細設定")
+    st.markdown("適用する割引をONにしてください。（設定は自動で保存され、再読み込みしても引き継がれます）")
+    
+    st.toggle("トヨタレンタカー 学割 (20%OFF)", key="d_toyota", on_change=update_discount_params)
+    st.toggle("日産レンタカー セルフライドゴー (10%OFF)", key="d_nissan", on_change=update_discount_params)
+    st.toggle("オリックス プライムメンバー等 (17%OFF)", key="d_orix", on_change=update_discount_params)
+    st.toggle("ニッポンレンタカー 三井カーシェア経由 (17%OFF)", key="d_nippon", on_change=update_discount_params)
+    
+    st.markdown("---")
+    if st.button("◀ マップに戻る", type="primary"):
+        st.session_state.current_page = "main"
+        st.rerun()  # 画面を切り替える
+        
+elif st.session_state.current_page == "main":
+    st.title("北海道レンタカー・カーシェア最安値マップ")
+    
+    # 設定画面への遷移ボタン
+    if st.button("⚙️ 全画面の設定を開く"):
+        st.session_state.current_page = "settings"
+        st.rerun()
+
+    st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。")
+
+    # ここで計算用の active_discounts を定義しておく
+    active_discounts = frozenset([
+        k for k, key in {
+            'toyota_gakuwari': 'd_toyota',
+            'nissan_self': 'd_nissan',
+            'orix_member': 'd_orix',
+            'nippon_mitsui': 'd_nippon'
+        }.items() if st.session_state[key]
+    ])
+
+    # 既存のサイドバーのコードをそのままここに置く
+    with st.sidebar:
+        st.header("⚙️条件")
+        pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3)
+    
+        col1, col2 = st.columns(2)
+        with col1:
+            st.date_input("出発日", key="start_d", on_change=sync_from_start)
+        with col2:
+            st.time_input("出発時刻", key="start_t", on_change=sync_from_start)
+        start_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+        col3, col4 = st.columns(2)
+        with col3:
+            st.date_input("返却日", key="end_d", on_change=sync_from_end)
+        with col4:
+            st.time_input("返却時刻", key="end_t", on_change=sync_from_end)
+        st.caption("返却時刻と最大時間は連動します。")
+        max_hours = st.number_input(
+            "最大時間(h)", min_value=12, max_value=720, step=12,
+            key="max_h", on_change=sync_from_hours
+        )
+        use_ins = st.toggle("フルサポート保険", value=True)
+        consider_biz_hours = st.toggle("営業時間を考慮する", value=True)
+        options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
+        fuel_calc_mode = st.radio(
+            "ガソリン代の計算方式",
+            options=range(len(options_text)),
+            format_func=lambda x: options_text[x],
+            index=0
+        )
+        max_hours = st.number_input("最大時間(h)", 12, 720, 72, 12)
+        max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100)
+        
+        selected_comps = st.multiselect(
+            "比較会社",
+            options=list(all_companies.keys()),
+            default=list(all_companies.keys()),
+            format_func=lambda x: all_companies[x]['label']
+        )
+    
+    # 既存の generate_map_data や render_map_and_details の呼び出しコードをここに置く
+    # (※ active_discounts を忘れずに引数に渡す)
+    render_map_and_details()
