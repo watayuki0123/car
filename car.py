@@ -330,7 +330,7 @@ all_companies = {
 
 # 第1段階キャッシュ: 全社の料金マトリックスを1次元ベクトル演算で高速生成（会社選択を変えても再計算されない）
 @st.cache_data(show_spinner=False)
-def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_hours, fuel_calc_mode, pax):
+def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_hours, fuel_calc_mode, pax, active_discounts):
     params = load_parameters("parameters.xlsx", pax)
     h_vec = np.linspace(1, max_hours, GRID_SIZE)
     d_vec = np.linspace(0, max_dist, GRID_SIZE)
@@ -343,7 +343,7 @@ def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_ho
 
 # 第2段階キャッシュ: 選択された会社の比較・ホバーテキスト生成
 @st.cache_data(show_spinner=False)
-def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tuple, consider_biz_hours, fuel_calc_mode, pax):
+def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tuple, consider_biz_hours, fuel_calc_mode, pax, active_discounts):
     H, D, matrices = compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_hours, fuel_calc_mode, pax, active_discounts)
     Z_list = [matrices[k] for k in selected_comps_tuple]
     active_colors = [all_companies[k]['color'] for k in selected_comps_tuple]
