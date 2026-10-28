@@ -325,8 +325,8 @@ with st.sidebar:
         format_func=lambda x: all_companies[x]['label']
     )
 
-params = load_parameters("parameters.xlsx", pax)
-print("orix_rの通常シーズンの辞書:", params.get('orix_r', {}).get('normal', {}))
+params = load_parameters("parameters.xlsx", pax)# 画面上に辞書の中身を綺麗に表示して確認する
+st.write("読み込んだ params の中身:", params)
 if not params:
     st.error("Excelエラー")
     st.stop()
