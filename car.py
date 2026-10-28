@@ -321,80 +321,7 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
 
     return H, D, Z_winner, hover_text, active_colors, names_array
 
-params = load_parameters("parameters.xlsx", pax)
-if not params:
-    st.error("Excelエラー")
-    st.stop()
 
-# マップクリック時はこのフラグメント内のみ部分更新し、全体の再実行を防ぐ
-@st.fragment
-def render_map_and_details():
-    if not selected_comps:
-        st.warning("会社を選択してください")
-        return
-
-    H, D, Z_winner, hover_text, active_colors, names_array = generate_map_data(
-        max_hours, max_dist, start_dt, use_ins, tuple(selected_comps), consider_biz_hours, fuel_calc_mode, pax
-    )
-
-    sel_h, sel_d = None, None
-    if "map_chart" in st.session_state:
-        pts = st.session_state["map_chart"].get("selection", {}).get("points", [])
-        if pts:
-            sel_h, sel_d = pts[0]["x"], pts[0]["y"]
-
-    N = len(active_colors)
-    colorscale = []
-    for i, c in enumerate(active_colors):
-        colorscale += [[i / N, c], [(i + 1) / N, c]]
-
-    fig = go.Figure()
-    fig.add_trace(go.Heatmap(
-        x=H[0, :], y=D[:, 0], z=Z_winner,
-        colorscale=colorscale, zmin=-0.5, zmax=N - 0.5, showscale=True,
-        colorbar=dict(title="<b>最安値</b>", tickmode="array", tickvals=np.arange(N), ticktext=names_array),
-        hoverinfo="skip", hovertemplate=None
-    ))
-    fig.add_trace(go.Scatter(
-        x=H.flatten(), y=D.flatten(), mode='markers',
-        marker=dict(color='rgba(0,0,0,0)', size=8),
-        customdata=hover_text.flatten(),
-        hovertemplate="<b>利用時間: %{x:.1f}h / 距離: %{y:.0f}km</b><br>---<br>%{customdata}<extra></extra>",
-        showlegend=False
-    ))
-    if sel_h is not None and sel_d is not None:
-        fig.add_trace(go.Scatter(
-            x=[sel_h], y=[sel_d], mode='markers+text',
-            marker=dict(color='#ff2b2b', size=16, line=dict(color='white', width=2)),
-            text=['📍'], textfont=dict(size=36), textposition='top center',
-            hoverinfo='skip', showlegend=False
-        ))
-
-    fig.update_layout(
-        xaxis_title="利用時間(時間)", yaxis_title="想定距離(km)",
-        height=650, margin=dict(l=40, r=10, t=40, b=40), clickmode="event+select"
-    )
-    st.plotly_chart(
-        fig, use_container_width=True, on_select="rerun",
-        selection_mode="points", key="map_chart", config={'displayModeBar': False}
-    )
-
-    if sel_h is not None and sel_d is not None:
-        st.markdown("---")
-        st.subheader(f"📍 料金詳細 (利用時間: {sel_h:.1f}h / 距離: {sel_d:.0f}km)")
-        bds = []
-        for c_key in selected_comps:
-            c = all_companies[c_key]
-            pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, True)
-            bds.append((pr, c['label'], tx))
-        bds.sort(key=lambda x: x[0])
-        cols = st.columns(3)
-        for i, (pr, lb, tx) in enumerate(bds):
-            with cols[i % 3]:
-                if i == 0:
-                    st.success(f"👑 **{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
-                else:
-                    st.info(f"**{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
 # --- 1. ページ状態と設定の初期化（URLパラメータで状態を保持） ---
 if "current_page" not in st.session_state:
     st.session_state.current_page = "main"
@@ -491,7 +418,80 @@ elif st.session_state.current_page == "main":
             default=list(all_companies.keys()),
             format_func=lambda x: all_companies[x]['label']
         )
+    params = load_parameters("parameters.xlsx", pax)
+    if not params:
+        st.error("Excelエラー")
+        st.stop()
     
+    # マップクリック時はこのフラグメント内のみ部分更新し、全体の再実行を防ぐ
+    @st.fragment
+    def render_map_and_details():
+        if not selected_comps:
+            st.warning("会社を選択してください")
+            return
+    
+        H, D, Z_winner, hover_text, active_colors, names_array = generate_map_data(
+            max_hours, max_dist, start_dt, use_ins, tuple(selected_comps), consider_biz_hours, fuel_calc_mode, pax
+        )
+    
+        sel_h, sel_d = None, None
+        if "map_chart" in st.session_state:
+            pts = st.session_state["map_chart"].get("selection", {}).get("points", [])
+            if pts:
+                sel_h, sel_d = pts[0]["x"], pts[0]["y"]
+    
+        N = len(active_colors)
+        colorscale = []
+        for i, c in enumerate(active_colors):
+            colorscale += [[i / N, c], [(i + 1) / N, c]]
+    
+        fig = go.Figure()
+        fig.add_trace(go.Heatmap(
+            x=H[0, :], y=D[:, 0], z=Z_winner,
+            colorscale=colorscale, zmin=-0.5, zmax=N - 0.5, showscale=True,
+            colorbar=dict(title="<b>最安値</b>", tickmode="array", tickvals=np.arange(N), ticktext=names_array),
+            hoverinfo="skip", hovertemplate=None
+        ))
+        fig.add_trace(go.Scatter(
+            x=H.flatten(), y=D.flatten(), mode='markers',
+            marker=dict(color='rgba(0,0,0,0)', size=8),
+            customdata=hover_text.flatten(),
+            hovertemplate="<b>利用時間: %{x:.1f}h / 距離: %{y:.0f}km</b><br>---<br>%{customdata}<extra></extra>",
+            showlegend=False
+        ))
+        if sel_h is not None and sel_d is not None:
+            fig.add_trace(go.Scatter(
+                x=[sel_h], y=[sel_d], mode='markers+text',
+                marker=dict(color='#ff2b2b', size=16, line=dict(color='white', width=2)),
+                text=['📍'], textfont=dict(size=36), textposition='top center',
+                hoverinfo='skip', showlegend=False
+            ))
+    
+        fig.update_layout(
+            xaxis_title="利用時間(時間)", yaxis_title="想定距離(km)",
+            height=650, margin=dict(l=40, r=10, t=40, b=40), clickmode="event+select"
+        )
+        st.plotly_chart(
+            fig, use_container_width=True, on_select="rerun",
+            selection_mode="points", key="map_chart", config={'displayModeBar': False}
+        )
+    
+        if sel_h is not None and sel_d is not None:
+            st.markdown("---")
+            st.subheader(f"📍 料金詳細 (利用時間: {sel_h:.1f}h / 距離: {sel_d:.0f}km)")
+            bds = []
+            for c_key in selected_comps:
+                c = all_companies[c_key]
+                pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, True)
+                bds.append((pr, c['label'], tx))
+            bds.sort(key=lambda x: x[0])
+            cols = st.columns(3)
+            for i, (pr, lb, tx) in enumerate(bds):
+                with cols[i % 3]:
+                    if i == 0:
+                        st.success(f"👑 **{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
+                    else:
+                        st.info(f"**{lb}**\n\n**計: {int(pr):,}円** ({pax}人割勘:約{int(pr) // pax:,}円)\n\n{tx}")
     # 既存の generate_map_data や render_map_and_details の呼び出しコードをここに置く
     # (※ active_discounts を忘れずに引数に渡す)
     render_map_and_details()
