@@ -338,13 +338,13 @@ def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_ho
     matrices = {}
     for comp_key, c in all_companies.items():
         f = c['func']
-        matrices[comp_key] = np.column_stack([np.broadcast_to(f(h, d_vec, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode), d_vec.shape) for h in h_vec]).astype(int)
+        matrices[comp_key] = np.column_stack([np.broadcast_to(f(h, d_vec, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts), d_vec.shape) for h in h_vec]).astype(int)
     return H, D, matrices
 
 # 第2段階キャッシュ: 選択された会社の比較・ホバーテキスト生成
 @st.cache_data(show_spinner=False)
 def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tuple, consider_biz_hours, fuel_calc_mode, pax):
-    H, D, matrices = compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_hours, fuel_calc_mode, pax)
+    H, D, matrices = compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_hours, fuel_calc_mode, pax, active_discounts)
     Z_list = [matrices[k] for k in selected_comps_tuple]
     active_colors = [all_companies[k]['color'] for k in selected_comps_tuple]
     names_array = np.array([all_companies[k]['label'].split('(')[0] for k in selected_comps_tuple])
@@ -466,7 +466,7 @@ elif st.session_state.current_page == "main":
             return
     
         H, D, Z_winner, hover_text, active_colors, names_array = generate_map_data(
-            max_hours, max_dist, start_dt, use_ins, tuple(selected_comps), consider_biz_hours, fuel_calc_mode, pax
+            max_hours, max_dist, start_dt, use_ins, tuple(selected_comps), consider_biz_hours, fuel_calc_mode, pax, active_discounts
         )
     
         sel_h, sel_d = None, None
