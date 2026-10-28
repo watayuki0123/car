@@ -389,7 +389,7 @@ def render_map_and_details():
         bds = []
         for c_key in selected_comps:
             c = all_companies[c_key]
-            pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, selected_comps_tuple, consider_biz_hours, True)
+            pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, True)
             bds.append((pr, c['label'], tx))
         bds.sort(key=lambda x: x[0])
         cols = st.columns(3)
