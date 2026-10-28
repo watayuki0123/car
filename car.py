@@ -6,11 +6,65 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import plotly.graph_objects as go
 
-'''st.set_page_config(page_title="レンタカー最安値マップ", layout="wide")'''
+st.set_page_config(page_title="レンタカー最安値マップ", layout="wide")
 
 
 GAS_PRICE, FUEL_EFFICIENCY = 167, 20
 GRID_SIZE = 60
+
+# ==========================================
+# 1. 状態保持（Session State）とコールバック関数（一番外側に書く！）
+# ==========================================
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "main"
+
+if "discounts_initialized" not in st.session_state:
+    st.session_state.d_toyota = st.query_params.get("d_toyota", "True") == "True"
+    st.session_state.d_nissan = st.query_params.get("d_nissan", "True") == "True"
+    st.session_state.d_orix = st.query_params.get("d_orix", "True") == "True"
+    st.session_state.d_nippon = st.query_params.get("d_nippon", "True") == "True"
+    st.session_state.discounts_initialized = True
+
+def update_discount_params():
+    st.query_params["d_toyota"] = str(st.session_state.d_toyota)
+    st.query_params["d_nissan"] = str(st.session_state.d_nissan)
+    st.query_params["d_orix"] = str(st.session_state.d_orix)
+    st.query_params["d_nippon"] = str(st.session_state.d_nippon)
+
+if "sync_init" not in st.session_state:
+    now = datetime.now(ZoneInfo("Asia/Tokyo"))
+    st.session_state.start_d = now.date()
+    st.session_state.start_t = datetime.strptime("10:00", "%H:%M").time()
+    st.session_state.max_h = 72
+    e_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t) + timedelta(hours=72)
+    st.session_state.end_d = e_dt.date()
+    st.session_state.end_t = e_dt.time()
+    st.session_state.sync_init = True
+
+def sync_from_start():
+    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
+    st.session_state.end_d = e_dt.date()
+    st.session_state.end_t = e_dt.time()
+
+def sync_from_hours():
+    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
+    st.session_state.end_d = e_dt.date()
+    st.session_state.end_t = e_dt.time()
+
+def sync_from_end():
+    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    e_dt = datetime.combine(st.session_state.end_d, st.session_state.end_t)
+    diff_hours = (e_dt - s_dt).total_seconds() / 3600.0
+    if diff_hours < 12:
+        diff_hours, e_dt = 12, s_dt + timedelta(hours=12)
+    elif diff_hours > 720:
+        diff_hours, e_dt = 720, s_dt + timedelta(hours=720)
+    st.session_state.end_d = e_dt.date()
+    st.session_state.end_t = e_dt.time()
+    st.session_state.max_h = int(diff_hours)
+
 
 @st.cache_data(show_spinner=False)
 def load_parameters(filepath="parameters.xlsx", pax=5):
@@ -322,25 +376,6 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
     return H, D, Z_winner, hover_text, active_colors, names_array
 
 
-# --- 1. ページ状態と設定の初期化（URLパラメータで状態を保持） ---
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "main"
-
-if "discounts_initialized" not in st.session_state:
-    # URLに保存された設定を読み込む（なければデフォルトの True）
-    st.session_state.d_toyota = st.query_params.get("d_toyota", "True") == "True"
-    st.session_state.d_nissan = st.query_params.get("d_nissan", "True") == "True"
-    st.session_state.d_orix = st.query_params.get("d_orix", "True") == "True"
-    st.session_state.d_nippon = st.query_params.get("d_nippon", "True") == "True"
-    st.session_state.discounts_initialized = True
-
-def update_discount_params():
-    # トグルが操作されるたびにURLを書き換えて永続化する
-    st.query_params["d_toyota"] = str(st.session_state.d_toyota)
-    st.query_params["d_nissan"] = str(st.session_state.d_nissan)
-    st.query_params["d_orix"] = str(st.session_state.d_orix)
-    st.query_params["d_nippon"] = str(st.session_state.d_nippon)
-
 
 # ==========================================
 # ⚙️ 設定画面（全画面）
@@ -378,7 +413,7 @@ elif st.session_state.current_page == "main":
             'nippon_mitsui': 'd_nippon'
         }.items() if st.session_state[key]
     ])
-
+    
     # 既存のサイドバーのコードをそのままここに置く
     with st.sidebar:
         st.header("⚙️条件")
