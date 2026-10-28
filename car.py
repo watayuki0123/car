@@ -81,7 +81,7 @@ def load_parameters(filepath="parameters.xlsx", pax=5):
     except Exception:
         return None
 
-def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['times']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 4) / 4
@@ -101,7 +101,7 @@ def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
         return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
 
-def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['orix_s']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 4) / 4
@@ -124,7 +124,7 @@ def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_ca
         return np.minimum(base + dist_charge, p['p_night'] + d * p['p_dist']) + ins_charge
     return base + dist_charge + ins_charge
 
-def calc_toyota_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_toyota_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['toyota_s']['normal']
     th = math.ceil(h * 4) / 4
     if th <= 6:
@@ -142,7 +142,7 @@ def calc_toyota_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_
         return total, f"・時間＋距離: {int(time_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
 
-def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['mitsui_s']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 6) / 6
@@ -159,7 +159,7 @@ def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_
         return total, f"・時間料金: {int(time_charge):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
     return total
 
-def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['niconico']['normal']
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
@@ -178,7 +178,7 @@ def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc
         return total, f"・基本: {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円\n・割増: {int(hs_charge):,}円"
     return total
 
-def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (918 <= md <= 922) or (1009 <= md <= 1011) or (1225 <= md <= 1231) or (101 <= md <= 102): s = 'hs1'
@@ -202,7 +202,7 @@ def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
         return total, f"・基本(期間含)(三井のカーシェア経由で17%引き): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (918 <= md <= 926) or (1225 <= md <= 1231) or (101 <= md <= 102) or (428 <= md <= 504): s = 'hs1'
@@ -227,7 +227,7 @@ def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
         return total, f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if 701 <= md <= 831: s = 'summer'
@@ -249,7 +249,7 @@ def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
         return total, f"・基本(割増含)(セルフライドゴー10%引き※仮): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (701 <= md <= 831) or (918 <= md <= 922) or (1225 <= md) or (md <= 102): s = 'hs'
@@ -272,7 +272,7 @@ def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
         return total, f"・基本(期間含): {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if 701 <= md <= 831: s = 'summer'
@@ -298,7 +298,7 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
         return total, f"・基本(期間含)(学割2割引き): {int(base * 0.8):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
     return total
 
-def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, return_breakdown=False):
+def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['uqey']['normal']
     th = math.ceil(h)
     days = math.ceil(th / 24)
