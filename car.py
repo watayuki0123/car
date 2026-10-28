@@ -116,8 +116,11 @@ def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc
     ins = days * p['p_ins'] if use_ins else 0
     hs_charge = (hs - 1) * 1100 + p['p_hs_surcharge']
     total = base + gas + ins + hs_charge
-    if( (p['open_time'] > start_dt.hour) or (p['close_time'] > (start_dt + timedelta(hours=float(h))).hour) ):
-       return 9999999999, f"営業時間外です。"
+    end_dt = start_dt + timedelta(hours=float(h))
+    if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time'])):
+        if return_breakdown:
+            return 9999999999, "営業時間外です。"
+        return 9999999999
     if return_breakdown:
         return total, f"・基本: {int(base):,}円\n・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円\n・割増: {int(hs_charge):,}円"
     return total
