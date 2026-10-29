@@ -10,20 +10,7 @@ st.set_page_config(page_title="レンタカー最安値マップ", layout="wide"
 
 GAS_PRICE, FUEL_EFFICIENCY = 160, 20
 GRID_SIZE = 60
-# ==========================================
-# 0. 共通の割引抽出ヘルパー関数
-# ==========================================
-def get_discount_vals(comp_key, active_discounts):
-    pct, yen = 0, 0
-    refuel, wash, orix_15min = False, False, False
-    for item in active_discounts:
-        if item[0] == comp_key:
-            if item[1] == 'pct': pct = item[2]
-            elif item[1] == 'yen': yen = item[2]
-            elif item[1] == 'refuel': refuel = item[2]
-            elif item[1] == 'wash': wash = item[2]
-            elif item[1] == '15min': orix_15min = item[2]
-    return pct, yen, refuel, wash, orix_15min
+COMP_KEYS = ['times', 'mitsui_s', 'orix_s', 'orix_r', 'toyota_s', 'toyota_r', 'niconico', 'nippon', 'nissan', 'budget', 'uqey']
 
 # ==========================================
 # 1. 状態保持（Session State）とコールバック関数
@@ -32,10 +19,8 @@ if "current_page" not in st.session_state:
     st.session_state.current_page = "main"
 
 if "discounts_initialized" not in st.session_state:
-    comp_keys = ['times', 'mitsui_s', 'orix_s', 'orix_r', 'toyota_s', 'toyota_r', 'niconico', 'nippon', 'nissan', 'budget', 'uqey']
-    for comp in comp_keys:
+    for comp in COMP_KEYS:
         st.session_state[f"d_{comp}_yen"] = 0
-        st.session_state[f"d_{comp}_pct"] = 0
         st.session_state[f"d_{comp}_refuel"] = False
         st.session_state[f"d_{comp}_wash"] = False
         st.session_state[f"d_{comp}_15min"] = False
@@ -51,29 +36,20 @@ if "sync_init" not in st.session_state:
     st.session_state.end_t = e_dt.time()
     st.session_state.sync_init = True
 
-def sync_from_start():
+def sync_dates(mode):
     s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
-    st.session_state.end_d = e_dt.date()
-    st.session_state.end_t = e_dt.time()
-
-def sync_from_hours():
-    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    e_dt = s_dt + timedelta(hours=st.session_state.max_h)
-    st.session_state.end_d = e_dt.date()
-    st.session_state.end_t = e_dt.time()
-
-def sync_from_end():
-    s_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-    e_dt = datetime.combine(st.session_state.end_d, st.session_state.end_t)
-    diff_hours = (e_dt - s_dt).total_seconds() / 3600.0
-    if diff_hours < 12:
-        diff_hours, e_dt = 12, s_dt + timedelta(hours=12)
-    elif diff_hours > 720:
-        diff_hours, e_dt = 720, s_dt + timedelta(hours=720)
-    st.session_state.end_d = e_dt.date()
-    st.session_state.end_t = e_dt.time()
-    st.session_state.max_h = int(diff_hours)
+    if mode in ['start', 'hours']:
+        e_dt = s_dt + timedelta(hours=st.session_state.max_h)
+        st.session_state.end_d = e_dt.date()
+        st.session_state.end_t = e_dt.time()
+    elif mode == 'end':
+        e_dt = datetime.combine(st.session_state.end_d, st.session_state.end_t)
+        diff_hours = (e_dt - s_dt).total_seconds() / 3600.0
+        diff_hours = max(12, min(720, diff_hours))
+        e_dt = s_dt + timedelta(hours=diff_hours)
+        st.session_state.end_d = e_dt.date()
+        st.session_state.end_t = e_dt.time()
+        st.session_state.max_h = int(diff_hours)
 
 @st.cache_data(show_spinner=False)
 def load_parameters(filepath="parameters.xlsx", pax=5):
@@ -93,7 +69,7 @@ def load_parameters(filepath="parameters.xlsx", pax=5):
 # ==========================================
 # 2. 各社の料金計算関数
 # ==========================================
-def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     p = params['times']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 4) / 4
@@ -108,24 +84,20 @@ def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
         base = min(base, p['p_night'])
     dist_charge = np.maximum(0, d - 20) * p['p_dist']
     ins_charge = p['p_ins'] if use_ins else 0
-    total = base + dist_charge + ins_charge
     
-    pct, yen, refuel, wash, _ = get_discount_vals('times', active_discounts)
-    discount = yen
-    if refuel: discount += p['p_hr1'] / 2
-    if wash: discount += p['p_hr1'] / 2
+    discount = comp_disc['yen']
+    if comp_disc['refuel']: discount += p['p_hr1'] / 2
+    if comp_disc['wash']: discount += p['p_hr1'] / 2
 
     if return_breakdown:
-        applied_discount = min(total, discount)
-        total = total - applied_discount
+        applied_discount = min(base + dist_charge + ins_charge, discount)
+        total = base + dist_charge + ins_charge - applied_discount
         bd = f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円\n"
-        if applied_discount > 0:
-            bd += f"・割引: -{int(applied_discount):,}円"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円"
         return total, bd
-    else:
-        return np.maximum(0, total - discount)
+    return np.maximum(0, base + dist_charge + ins_charge - discount)
 
-def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     p = params['orix_s']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 4) / 4
@@ -139,37 +111,27 @@ def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_ca
     is_night = (start_dt.hour >= 18 and end_dt.hour <= 9 and (end_dt.date() - start_dt.date()).days == 1) or ((start_dt.hour >= 18 or end_dt.hour <= 9) and (end_dt.date() - start_dt.date()).days == 0)
     ins_charge = math.ceil(th / 24) * p['p_ins'] if use_ins else 0
     
-    pct, yen, _, _, orix_15min = get_discount_vals('orix_s', active_discounts)
-    discount = yen
-    if orix_15min and th <= 6 and remain_th * p['p_hr1'] < p['p_6h']:
+    discount = comp_disc['yen']
+    if comp_disc['15min'] and th <= 6 and remain_th * p['p_hr1'] < p['p_6h']:
         discount += p['p_hr1'] / 4
 
     if return_breakdown:
-        time_charge = base
-        if is_night and ((time_charge + dist_charge) >= (p['p_night'] + d * p['p_dist'])):
-            time_charge = p['p_night']
-            dist_charge = d * p['p_dist']
-            
+        time_charge = p['p_night'] if (is_night and (base + dist_charge >= p['p_night'] + d * p['p_dist'])) else base
+        dist_charge = d * p['p_dist'] if (is_night and (base + dist_charge >= p['p_night'] + d * p['p_dist'])) else dist_charge
+        
         applied_discount = min(time_charge, discount)
         time_charge -= applied_discount
-        total = time_charge + dist_charge + ins_charge
 
         bd = f"・基本(時間): {int(time_charge + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
-        return total, bd
+        return time_charge + dist_charge + ins_charge, bd
     else:
-        if is_night:
-            total_before_ins = np.minimum(base + dist_charge, p['p_night'] + d * p['p_dist'])
-        else:
-            total_before_ins = base + dist_charge
-            
-        time_charge = total_before_ins - dist_charge
-        time_charge = np.maximum(0, time_charge - discount)
+        total_before = np.minimum(base + dist_charge, p['p_night'] + d * p['p_dist']) if is_night else base + dist_charge
+        time_charge = np.maximum(0, total_before - dist_charge - discount)
         return time_charge + dist_charge + ins_charge
 
-def calc_toyota_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_toyota_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     p = params['toyota_s']['normal']
     th = math.ceil(h * 4) / 4
     if th <= 6:
@@ -180,28 +142,19 @@ def calc_toyota_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_
             time_charge = min(p['p_6h'] + math.ceil(th - 6) * p['p_hr2'], p['p_12h'] + math.ceil(max(0, th - 12)) * p['p_hr2'], p['p_24h'])
         else:
             time_charge = p['p_24h'] + (days - 1) * p['p_ex_day'] + min(math.ceil(rem) * p['p_hr2'], p['p_ex_day'])
-        time_charge = time_charge + d * p['p_dist']
+        time_charge += d * p['p_dist']
     ins_charge = (p['p_ins_short'] if th <= 6 else math.ceil(th / 24) * p['p_ins']) if use_ins else 0
     
-    pct, yen, _, _, _ = get_discount_vals('toyota_s', active_discounts)
-
     if return_breakdown:
-        discount_amount = time_charge * (pct / 100.0) + yen
-        applied_discount = min(time_charge, discount_amount)
+        applied_discount = min(time_charge, comp_disc['yen'])
         time_charge -= applied_discount
-
-        total = time_charge + ins_charge
         bd = f"・時間＋距離: {int(time_charge + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・補償料: {int(ins_charge):,}円"
-        return total, bd
-    else:
-        discount_amount = time_charge * (pct / 100.0) + yen
-        time_charge = np.maximum(0, time_charge - discount_amount)
-        return time_charge + ins_charge
+        return time_charge + ins_charge, bd
+    return np.maximum(0, time_charge - comp_disc['yen']) + ins_charge
 
-def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     p = params['mitsui_s']['normal']
     end_dt = start_dt + timedelta(hours=float(h))
     th = math.ceil(h * 6) / 6
@@ -213,24 +166,20 @@ def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_
         time_charge = min(time_charge, p['p_night'])
     dist_charge = d * (p['p_dist'] if th > 6 else 0)
     ins_charge = math.ceil(th / 24) * p['p_ins'] if use_ins else 0
-    total = time_charge + dist_charge + ins_charge
     
-    pct, yen, refuel, wash, _ = get_discount_vals('mitsui_s', active_discounts)
-    discount = yen
-    if refuel: discount += 400
-    if wash: discount += 500
+    discount = comp_disc['yen']
+    if comp_disc['refuel']: discount += 400
+    if comp_disc['wash']: discount += 500
 
     if return_breakdown:
-        applied_discount = min(total, discount)
-        total = total - applied_discount
+        applied_discount = min(time_charge + dist_charge + ins_charge, discount)
+        total = time_charge + dist_charge + ins_charge - applied_discount
         bd = f"・時間料金: {int(time_charge):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円\n"
-        if applied_discount > 0:
-            bd += f"・割引: -{int(applied_discount):,}円"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円"
         return total, bd
-    else:
-        return np.maximum(0, total - discount)
+    return np.maximum(0, time_charge + dist_charge + ins_charge - discount)
 
-def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     p = params['niconico']['normal']
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
@@ -244,29 +193,17 @@ def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc
     if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
         if return_breakdown: return 9999999999, "営業時間外です。"
         return 9999999999
-        
-    pct, yen, _, _, _ = get_discount_vals('niconico', active_discounts)
 
     if return_breakdown: 
-        discount_amount = base * (pct / 100.0) + yen
-        applied_discount = min(base, discount_amount)
+        applied_discount = min(base, comp_disc['yen'])
         base -= applied_discount
-
-        total = base + gas + ins + hs_charge
-        bd = f"・基本"
-        if hs != 0:
-            bd += "(ハイシーズン料金)"
-        bd += f": {int(base + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        bd = f"・基本" + ("(ハイシーズン料金)" if hs != 0 else "") + f": {int(base + applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円\n・割増: {int(hs_charge):,}円"
-        return total, bd
-    else:
-        discount_amount = base * (pct / 100.0) + yen
-        base = np.maximum(0, base - discount_amount)
-        return base + gas + ins + hs_charge
+        return base + gas + ins + hs_charge, bd
+    return np.maximum(0, base - comp_disc['yen']) + gas + ins + hs_charge
 
-def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (918 <= md <= 922) or (1009 <= md <= 1011) or (1225 <= md <= 1231) or (101 <= md <= 102): s = 'hs1'
@@ -278,8 +215,7 @@ def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     elif th <= 12: base = num[1]
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
-    # 三井のカーシェア経由で17%引き
-    base=base*0.83
+    base *= 0.83 # 三井カーシェア経由17%引
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     end_dt = start_dt + timedelta(hours=float(h))
@@ -287,29 +223,17 @@ def calc_nippon_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
         if return_breakdown: return 9999999999, "営業時間外です。"
         return 9999999999
-        
-    pct, yen, _, _, _ = get_discount_vals('nippon', active_discounts)
 
     if return_breakdown: 
-        discount_amount = base * (pct / 100.0) + yen
-        applied_discount = min(base, discount_amount)
+        applied_discount = min(base, comp_disc['yen'])
         base -= applied_discount
-
-        total = base + gas + ins
-        bd = f"・基本"
-        if s=='hs1' or s=='hs2':
-            bd+="(ハイシーズン料金)"
-        bd+=f": {int(base + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        bd = f"・基本(期間含): {int(base + applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
-        return total, bd
-    else:
-        discount_amount = base * (pct / 100.0) + yen
-        base = np.maximum(0, base - discount_amount)
-        return base + gas + ins
+        return base + gas + ins, bd
+    return np.maximum(0, base - comp_disc['yen']) + gas + ins
 
-def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (918 <= md <= 926) or (1225 <= md <= 1231) or (101 <= md <= 102) or (428 <= md <= 504): s = 'hs1'
@@ -321,8 +245,7 @@ def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
     elif th <= 12: base = num[1]
     elif th <= 24: base = num[2]
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[4])
-    # 北海道割、学生割
-    base=base*0.8
+    base *= 0.8
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     end_dt = start_dt + timedelta(hours=float(h))
@@ -330,29 +253,17 @@ def calc_orix_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
     if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
         if return_breakdown: return 9999999999, "営業時間外です。"
         return 9999999999
-        
-    pct, yen, _, _, _ = get_discount_vals('orix_r', active_discounts)
 
     if return_breakdown:
-        discount_amount = base * (pct / 100.0) + yen
-        applied_discount = min(base, discount_amount)
+        applied_discount = min(base, comp_disc['yen'])
         base -= applied_discount
-
-        total = base + gas + ins
-        bd = f"・基本"
-        if s=='hs1' or s=='hs2':
-            bd+="(ハイシーズン料金)"
-        bd+=f": {int(base + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        bd = f"・基本(期間含): {int(base + applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
-        return total, bd
-    else:
-        discount_amount = base * (pct / 100.0) + yen
-        base = np.maximum(0, base - discount_amount)
-        return base + gas + ins
+        return base + gas + ins, bd
+    return np.maximum(0, base - comp_disc['yen']) + gas + ins
 
-def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if 701 <= md <= 831: s = 'summer'
@@ -366,33 +277,20 @@ def calc_nissan_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     else: base = num[2] + ((th // 24) - 1) * num[4] + min((th % 24) * num[3], num[1])
     if (429 <= md <= 506) or (919 <= md <= 923) or (1010 <= md <= 1012) or (1121 <= md <= 1123) or (1228 <= md) or (md <= 105) or (109 <= md <= 111) or (320 <= md <= 322):
         base += days * p['p_hs_surcharge']
-    # セルフライドゴーやe-シェアモビでおおよそ20%引き
-    base = base * 0.8
+    base *= 0.8
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     
-    pct, yen, _, _, _ = get_discount_vals('nissan', active_discounts)
-
     if return_breakdown: 
-        discount_amount = base * (pct / 100.0) + yen
-        applied_discount = min(base, discount_amount)
+        applied_discount = min(base, comp_disc['yen'])
         base -= applied_discount
-
-        total = base + gas + ins
-        bd = f"・基本"
-        if s=='summer' or s=='winter':
-            bd+=f"(ハイシーズン料金)"
-        bd+=f": {int(base + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        bd = f"・基本(割増含): {int(base + applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
-        return total, bd
-    else:
-        discount_amount = base * (pct / 100.0) + yen
-        base = np.maximum(0, base - discount_amount)
-        return base + gas + ins
+        return base + gas + ins, bd
+    return np.maximum(0, base - comp_disc['yen']) + gas + ins
 
-def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if (701 <= md <= 831) or (918 <= md <= 922) or (1225 <= md) or (md <= 102): s = 'hs'
@@ -410,29 +308,17 @@ def calc_budget_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
         if return_breakdown: return 9999999999, "営業時間外です。"
         return 9999999999
-        
-    pct, yen, _, _, _ = get_discount_vals('budget', active_discounts)
 
     if return_breakdown: 
-        discount_amount = base * (pct / 100.0) + yen
-        applied_discount = min(base, discount_amount)
+        applied_discount = min(base, comp_disc['yen'])
         base -= applied_discount
-
-        total = base + gas + ins
-        bd = f"・基本"
-        if s=='hs':
-            bd+=f"(ハイシーズン料金)"
-        bd+=f": {int(base + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        bd = f"・基本(期間含): {int(base + applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
-        return total, bd
-    else:
-        discount_amount = base * (pct / 100.0) + yen
-        base = np.maximum(0, base - discount_amount)
-        return base + gas + ins
+        return base + gas + ins, bd
+    return np.maximum(0, base - comp_disc['yen']) + gas + ins
 
-def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     th, md = math.ceil(h), start_dt.month * 100 + start_dt.day
     days = math.ceil(th / 24)
     if 701 <= md <= 831: s = 'summer'
@@ -441,9 +327,7 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     else: s = 'normal'
     p = params['toyota_r'][s]
     num = [p['p_3h'], p['p_6h'], p['p_12h'], p['p_24h'], p['p_ex_day'], p['p_ex_hr']]
-    base = [0, 0]
-    gas = [0, 0]
-    ins = [0, 0]
+    base, gas, ins = [0, 0], [0, 0], [0, 0]
     
     if th <= 3: base[0] = num[0]
     elif th <= 6: base[0] = num[1]
@@ -453,7 +337,6 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     gas[0] = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins[0] = days * p['p_ins'] if use_ins else 0
     
-    # 学割
     if th <= 12: base[1] = params['toyota_r']['student']['p_12h']
     elif th <= 24: base[1] = params['toyota_r']['student']['p_24h']
     else: base[1] = (((th-24)//24)+1)* params['toyota_r']['student']['p_ex_day']+params['toyota_r']['student']['p_24h']
@@ -465,44 +348,24 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
         if return_breakdown: return 9999999999, "営業時間外です。"
         return 9999999999
         
-    pct, yen, _, _, _ = get_discount_vals('toyota_r', active_discounts)
-    
     if return_breakdown: 
-        total0 = base[0] + gas[0] + ins[0]
-        total1 = base[1] + gas[1] + ins[1]
-        is_student = 1 if total0 > total1 else 0
+        total0, total1 = base[0] + gas[0] + ins[0], base[1] + gas[1] + ins[1]
+        is_st = 1 if total0 > total1 else 0
 
-        discount_amount = base[is_student] * (pct / 100.0) + yen
-        applied_discount = min(base[is_student], discount_amount)
-        base[is_student] -= applied_discount
-
-        bd = f"・基本"
-        if (s=='special' or s=='winter'):
-            bd += f"(ハイシーズン料金)"
-        if is_student == 0:
-            bd += f"(学割より通常料金が安いです)"
-        else:
-            bd += f"(通常料金より学割が安いです)"
-            
-        bd += f": {int(base[is_student] + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
-        bd += f"・ガソリン: {int(gas[is_student]):,}円\n・補償料: {int(ins[is_student]):,}円"
-        
-        return (base[is_student] + gas[is_student] + ins[is_student]), bd
+        applied_discount = min(base[is_st], comp_disc['yen'])
+        base[is_st] -= applied_discount
+        bd = "・基本" + ("(ハイシーズン料金)" if s in ['special', 'winter'] else "")
+        bd += "(通常料金より学割が安いです)" if is_st == 1 else "(学割より通常料金が安いです)"
+        bd += f": {int(base[is_st] + applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
+        bd += f"・ガソリン: {int(gas[is_st]):,}円\n・補償料: {int(ins[is_st]):,}円"
+        return (base[is_st] + gas[is_st] + ins[is_st]), bd
         
     else:
-        discount_amount0 = base[0] * (pct / 100.0) + yen
-        base0_discounted = np.maximum(0, base[0] - discount_amount0)
-        total0_array = base0_discounted + gas[0] + ins[0]
-        
-        discount_amount1 = base[1] * (pct / 100.0) + yen
-        base1_discounted = np.maximum(0, base[1] - discount_amount1)
-        total1_array = base1_discounted + gas[1] + ins[1]
-        
-        return np.minimum(total0_array, total1_array)
+        return np.minimum(np.maximum(0, base[0] - comp_disc['yen']) + gas[0] + ins[0],
+                          np.maximum(0, base[1] - comp_disc['yen']) + gas[1] + ins[1])
 
-def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
+def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, comp_disc, return_breakdown=False):
     p = params['uqey']['normal']
     th = math.ceil(h)
     days = math.ceil(th / 24)
@@ -514,23 +377,14 @@ def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mod
     gas = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins = days * p['p_ins'] if use_ins else 0
     
-    pct, yen, _, _, _ = get_discount_vals('uqey', active_discounts)
-
     if return_breakdown: 
-        discount_amount = base * (pct / 100.0) + yen
-        applied_discount = min(base, discount_amount)
+        applied_discount = min(base, comp_disc['yen'])
         base -= applied_discount
-
-        total = base + gas + ins
         bd = f"・基本料金: {int(base + applied_discount):,}円\n"
-        if applied_discount > 0: 
-            bd += f"・割引: -{int(applied_discount):,}円\n"
+        if applied_discount > 0: bd += f"・割引: -{int(applied_discount):,}円\n"
         bd += f"・ガソリン: {int(gas):,}円\n・補償料: {int(ins):,}円"
-        return total, bd
-    else:
-        discount_amount = base * (pct / 100.0) + yen
-        base = np.maximum(0, base - discount_amount)
-        return base + gas + ins
+        return base + gas + ins, bd
+    return np.maximum(0, base - comp_disc['yen']) + gas + ins
 
 all_companies = {
     'times': {'func': calc_times_car, 'color': '#1f77b4', 'label': 'タイムズカー(青)'},
@@ -553,9 +407,18 @@ def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_ho
     d_vec = np.linspace(0, max_dist, GRID_SIZE)
     H, D = np.meshgrid(h_vec, d_vec)
     matrices = {}
+    
+    # 辞書化して関数ごとのパース処理を省き高速化
+    disc_dict = {k: {'yen':0, 'refuel':False, 'wash':False, '15min':False} for k in COMP_KEYS}
+    for item in active_discounts:
+        comp, dtype, val = item
+        disc_dict[comp][dtype] = val
+
     for comp_key, c in all_companies.items():
-        f = c['func']
-        matrices[comp_key] = np.column_stack([np.broadcast_to(f(h, d_vec, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts), d_vec.shape) for h in h_vec]).astype(int)
+        matrices[comp_key] = np.column_stack([
+            np.broadcast_to(c['func'](h, d_vec, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, disc_dict[comp_key]), d_vec.shape) 
+            for h in h_vec
+        ]).astype(int)
     return H, D, matrices
 
 @st.cache_data(show_spinner=False)
@@ -590,13 +453,12 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
     hover_text = np.array(hover_flat, dtype=object).reshape(H.shape)
     return H, D, Z_winner, hover_text, active_colors, names_array
 
-
 # ==========================================
 # 3. 全画面設定ページ
 # ==========================================
 if st.session_state.current_page == "settings":
     st.title("⚙️ 詳細設定")
-    st.markdown("各社の割引名や金額を設定できます。（マップに戻るボタンを押すと設定が保存されます）")
+    st.markdown("各社の割引金額を設定できます。（マップに戻るボタンを押すと設定が保存されます）")
     st.write("")
 
     st.markdown("""
@@ -606,14 +468,10 @@ if st.session_state.current_page == "settings":
         transition: transform 0.2s ease, border-color 0.2s ease;
         background-color: rgba(30, 30, 30, 0.4);
     }
-    div[data-testid="stContainer"]:hover {
-        transform: translateX(4px);
-        border-color: #888888 !important;
-    }
+    div[data-testid="stContainer"]:hover { transform: translateX(4px); border-color: #888888 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # === 全社共通の割引カード描画関数 ===
     def draw_discount_card(comp_key, title, color, features):
         with st.container(border=True):
             st.markdown(f"""
@@ -636,24 +494,15 @@ if st.session_state.current_page == "settings":
             if has_toggles:
                 st.markdown("<hr style='margin: 8px 0; border: none; border-top: 1px solid #444;'>", unsafe_allow_html=True)
                 
-            if 'pct' in features:
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.number_input("割引率 (%)", min_value=0, max_value=100, step=1, value=st.session_state.get(f"d_{comp_key}_pct", 0), key=f"_ui_d_{comp_key}_pct")
-                with c2:
-                    st.number_input("割引額 (円)", min_value=0, step=1, value=st.session_state.get(f"d_{comp_key}_yen", 0), key=f"_ui_d_{comp_key}_yen")
-            else:
-                st.number_input("割引額 (円)", min_value=0, step=1, value=st.session_state.get(f"d_{comp_key}_yen", 0), key=f"_ui_d_{comp_key}_yen")
+            st.number_input("割引額 (円)", min_value=0, step=1, value=st.session_state.get(f"d_{comp_key}_yen", 0), key=f"_ui_d_{comp_key}_yen")
 
-    # 見やすくするために画面の中央に1カラムで並べる
     col1, col2, col3 = st.columns([1, 2, 1])
-    
     with col2:
         draw_discount_card("times", "タイムズカー (青)", "#1f77b4", ['refuel', 'wash'])
         draw_discount_card("mitsui_s", "三井のシェア (緑)", "#2ca02c", ['refuel', 'wash'])
         draw_discount_card("orix_s", "オリックスシェア (水)", "#17becf", ['15min'])
         draw_discount_card("toyota_s", "トヨタシェア (赤)", "#d62728", [])
-        draw_discount_card("orix_r", "オリックスレンタカー (紫)", "#9467bd", ['pct'])
+        draw_discount_card("orix_r", "オリックスレンタカー (紫)", "#9467bd", [])
         draw_discount_card("toyota_r", "トヨタレンタカー (紺)", "#34495e", [])
         draw_discount_card("budget", "バジェット (黄)", "#f1c40f", [])
         draw_discount_card("nippon", "ニッポンレンタカー (茶)", "#8c564b", [])
@@ -662,20 +511,12 @@ if st.session_state.current_page == "settings":
         draw_discount_card("uqey", "Uqey (桃)", "#e377c2", [])
         
         st.markdown("<br>", unsafe_allow_html=True)
-        
-        # 確実な保存処理付きのボタン
         if st.button("◀ マップに戻る", type="primary", use_container_width=True):
-            keys_to_sync = []
-            comp_keys = ['times', 'mitsui_s', 'orix_s', 'orix_r', 'toyota_s', 'toyota_r', 'niconico', 'nippon', 'nissan', 'budget', 'uqey']
-            for comp in comp_keys:
-                keys_to_sync.extend([f"d_{comp}_refuel", f"d_{comp}_wash", f"d_{comp}_15min", f"d_{comp}_pct", f"d_{comp}_yen"])
-                
-            # 入力中の変数をすべて保存用変数にコピーする
-            for k in keys_to_sync:
-                ui_key = f"_ui_{k}"
-                if ui_key in st.session_state:
-                    st.session_state[k] = st.session_state[ui_key]
-                    
+            for comp in COMP_KEYS:
+                for f in ['refuel', 'wash', '15min', 'yen']:
+                    ui_key = f"_ui_d_{comp}_{f}"
+                    if ui_key in st.session_state:
+                        st.session_state[f"d_{comp}_{f}"] = st.session_state[ui_key]
             st.session_state.current_page = "main"
             st.rerun()
 
@@ -691,54 +532,32 @@ elif st.session_state.current_page == "main":
 
     st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。")
 
-    # === 計算用にONになっている割引と数値を文字列のリストとしてまとめる ===
     discounts = []
-    comp_keys = ['times', 'mitsui_s', 'orix_s', 'orix_r', 'toyota_s', 'toyota_r', 'niconico', 'nippon', 'nissan', 'budget', 'uqey']
-    for comp in comp_keys:
+    for comp in COMP_KEYS:
         if st.session_state.get(f"d_{comp}_refuel"): discounts.append((comp, 'refuel', True))
         if st.session_state.get(f"d_{comp}_wash"): discounts.append((comp, 'wash', True))
         if st.session_state.get(f"d_{comp}_15min"): discounts.append((comp, '15min', True))
-        
-        pct = st.session_state.get(f"d_{comp}_pct", 0)
-        if pct > 0: discounts.append((comp, 'pct', pct))
-        
         yen = st.session_state.get(f"d_{comp}_yen", 0)
         if yen > 0: discounts.append((comp, 'yen', yen))
-        
     active_discounts = frozenset(discounts)
 
     with st.sidebar:
         st.header("⚙️条件")
         pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3, key="pax")
-
         col1, col2 = st.columns(2)
-        with col1:
-            st.date_input("出発日", key="start_d", on_change=sync_from_start)
-        with col2:
-            st.time_input("出発時刻", key="start_t", on_change=sync_from_start)
+        with col1: st.date_input("出発日", key="start_d", on_change=sync_dates, args=('start',))
+        with col2: st.time_input("出発時刻", key="start_t", on_change=sync_dates, args=('start',))
         start_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
         
         col3, col4 = st.columns(2)
-        with col3:
-            st.date_input("返却日", key="end_d", on_change=sync_from_end)
-        with col4:
-            st.time_input("返却時刻", key="end_t", on_change=sync_from_end)
+        with col3: st.date_input("返却日", key="end_d", on_change=sync_dates, args=('end',))
+        with col4: st.time_input("返却時刻", key="end_t", on_change=sync_dates, args=('end',))
         st.caption("返却時刻と最大時間は連動します。")
         
-        max_hours = st.number_input(
-            "最大時間(h)", min_value=12, max_value=720, step=12,
-            key="max_h", on_change=sync_from_hours
-        )
+        max_hours = st.number_input("最大時間(h)", min_value=12, max_value=720, step=12, key="max_h", on_change=sync_dates, args=('hours',))
         use_ins = st.toggle("フルサポート保険", value=True, key="use_ins")
-        consider_biz_hours = st.toggle("営業時間を考慮する", value=True, key=" consider_biz_hours")
-        options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
-        fuel_calc_mode = st.radio(
-            "ガソリン代の計算方式",
-            options=range(len(options_text)),
-            format_func=lambda x: options_text[x],
-            index=0,
-            key="fuel_calc_mode"
-        )
+        consider_biz_hours = st.toggle("営業時間を考慮する", value=True, key="consider_biz_hours")
+        fuel_calc_mode = st.radio("ガソリン代の計算方式", options=range(2), format_func=lambda x: ["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"][x], index=0, key="fuel_calc_mode")
         max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100, key="max_dist")
         
         selected_comps = st.multiselect(
@@ -766,13 +585,10 @@ elif st.session_state.current_page == "main":
         sel_h, sel_d = None, None
         if "map_chart" in st.session_state:
             pts = st.session_state["map_chart"].get("selection", {}).get("points", [])
-            if pts:
-                sel_h, sel_d = pts[0]["x"], pts[0]["y"]
+            if pts: sel_h, sel_d = pts[0]["x"], pts[0]["y"]
 
         N = len(active_colors)
-        colorscale = []
-        for i, c in enumerate(active_colors):
-            colorscale += [[i / N, c], [(i + 1) / N, c]]
+        colorscale = [[i / N, c] for i, c in enumerate(active_colors) for _ in (0, 1)]
 
         fig = go.Figure()
         fig.add_trace(go.Heatmap(
@@ -800,79 +616,53 @@ elif st.session_state.current_page == "main":
             xaxis_title="利用時間(時間)", yaxis_title="想定距離(km)",
             height=650, margin=dict(l=40, r=10, t=40, b=40), clickmode="event+select"
         )
-        st.plotly_chart(
-            fig, use_container_width=True, on_select="rerun",
-            selection_mode="points", key="map_chart", config={'displayModeBar': False}
-        )
+        st.plotly_chart(fig, use_container_width=True, on_select="rerun", selection_mode="points", key="map_chart", config={'displayModeBar': False})
 
         if sel_h is not None and sel_d is not None:
             st.markdown("---")
             st.subheader(f"📍 料金詳細 (利用時間: {sel_h:.1f}h / 距離: {sel_d:.0f}km)")
+            
+            disc_dict = {k: {'yen':0, 'refuel':False, 'wash':False, '15min':False} for k in COMP_KEYS}
+            for item in active_discounts:
+                comp, dtype, val = item
+                disc_dict[comp][dtype] = val
+
             bds = []
             for c_key in selected_comps:
                 c = all_companies[c_key]
-                pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, True)
+                pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, disc_dict[c_key], True)
                 bds.append((pr, c['label'], tx, c['color']))
             bds.sort(key=lambda x: x[0])
             
             st.markdown("""
             <style>
-            .price-card {
-                background-color: #1e1e1e;
-                border-radius: 12px;
-                padding: 16px 24px;
-                margin-bottom: 12px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-                border-left: 8px solid transparent;
-                transition: transform 0.2s ease;
-            }
+            .price-card { background-color: #1e1e1e; border-radius: 12px; padding: 16px 24px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border-left: 8px solid transparent; transition: transform 0.2s ease; }
             .price-card:hover { transform: translateX(4px); }
-            .rank-winner {
-                border-left-color: #ffd700;
-                background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(30,30,30,1) 100%);
-            }
+            .rank-winner { border-left-color: #ffd700; background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(30,30,30,1) 100%); }
             .card-left { flex: 1; }
             .card-right { text-align: right; min-width: 150px; }
             .comp-name { font-size: 1.2rem; font-weight: bold; color: #ffffff; margin-bottom: 4px; }
             .breakdown { font-size: 0.85rem; color: #aaaaaa; white-space: pre-wrap; }
             .total-price { font-size: 1.8rem; font-weight: 800; color: #ffffff; }
             .split-price { font-size: 0.9rem; color: #888888; }
-            .rank-badge {
-                display: inline-block; padding: 2px 8px; border-radius: 4px;
-                font-size: 0.8rem; font-weight: bold; margin-right: 8px;
-            }
+            .rank-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; margin-right: 8px; }
             </style>
             """, unsafe_allow_html=True)
 
             for i, (pr, lb, tx, color) in enumerate(bds):
-                if pr >= 9999999999:
-                    pr_str, split_str = "利用不可", "営業時間外"
-                else:
-                    pr_str = f"¥{int(pr):,}"
-                    split_str = f"1人あたり: ¥{int(pr) // pax:,}"
+                if pr >= 9999999999: pr_str, split_str = "利用不可", "営業時間外"
+                else: pr_str, split_str = f"¥{int(pr):,}", f"1人あたり: ¥{int(pr) // pax:,}"
 
                 winner_class = "rank-winner" if i == 0 else ""
-                badge_bg = "#ffd700" if i == 0 else "#444444"
-                badge_text = "#000000" if i == 0 else "#ffffff"
-                rank_str = "👑 1位" if i == 0 else f"{i+1}位"
-                tx_html = tx.replace('\n', '<br>')
+                badge_bg, badge_text, rank_str = ("#ffd700", "#000000", "👑 1位") if i == 0 else ("#444444", "#ffffff", f"{i+1}位")
 
                 card_html = f"""
                 <div class="price-card {winner_class}" style="border-left-color: {color};">
                     <div class="card-left">
-                        <div class="comp-name">
-                            <span class="rank-badge" style="background-color: {badge_bg}; color: {badge_text};">{rank_str}</span>
-                            {lb}
-                        </div>
-                        <div class="breakdown">{tx_html}</div>
+                        <div class="comp-name"><span class="rank-badge" style="background-color: {badge_bg}; color: {badge_text};">{rank_str}</span>{lb}</div>
+                        <div class="breakdown">{tx.replace('\n', '<br>')}</div>
                     </div>
-                    <div class="card-right">
-                        <div class="total-price">{pr_str}</div>
-                        <div class="split-price">{split_str}</div>
-                    </div>
+                    <div class="card-right"><div class="total-price">{pr_str}</div><div class="split-price">{split_str}</div></div>
                 </div>
                 """
                 st.markdown(card_html, unsafe_allow_html=True)
