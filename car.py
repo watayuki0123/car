@@ -11,7 +11,14 @@ st.set_page_config(page_title="レンタカー最安値マップ", layout="wide"
 
 GAS_PRICE, FUEL_EFFICIENCY = 167, 20
 GRID_SIZE = 60
+# ▼▼▼ 追加：0. 画面遷移時の状態リセットを防ぐための復元処理 ▼▼▼
+if "saved_state" not in st.session_state:
+    st.session_state.saved_state = {}
 
+# 直前の状態で保存されていたものを復元する
+for k, v in st.session_state.saved_state.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
 # ==========================================
 # 1. 状態保持（Session State）とコールバック関数（一番外側に書く！）
 # ==========================================
@@ -583,7 +590,7 @@ elif st.session_state.current_page == "main":
     # 既存のサイドバーのコードをそのままここに置く
     with st.sidebar:
         st.header("⚙️条件")
-        pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3)
+        pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3, key="pax")
     
         col1, col2 = st.columns(2)
         with col1:
@@ -601,16 +608,16 @@ elif st.session_state.current_page == "main":
             "最大時間(h)", min_value=12, max_value=720, step=12,
             key="max_h", on_change=sync_from_hours
         )
-        use_ins = st.toggle("フルサポート保険", value=True)
-        consider_biz_hours = st.toggle("営業時間を考慮する", value=True)
+        use_ins = st.toggle("フルサポート保険", value=True, key="use_ins")
+        consider_biz_hours = st.toggle("営業時間を考慮する", value=True, key=" consider_biz_hours")
         options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
         fuel_calc_mode = st.radio(
             "ガソリン代の計算方式",
             options=range(len(options_text)),
             format_func=lambda x: options_text[x],
-            index=0
+            index=0,
+            key="fuel_calc_mode"
         )
-        max_hours = st.number_input("最大時間(h)", 12, 720, 72, 12)
         max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100)
         
         selected_comps = st.multiselect(
@@ -786,3 +793,15 @@ elif st.session_state.current_page == "main":
     # 既存の generate_map_data や render_map_and_details の呼び出しコードをここに置く
     # (※ active_discounts を忘れずに引数に渡す)
     render_map_and_details()
+keys_to_save = [
+    # 割引設定
+    "d_toyota", "d_nissan", "d_orix", "d_nippon",
+    "d_times_refuel", "d_times_wash", "d_times_ticket",
+    "d_mitsui_refuel", "d_mitsui_wash", "d_mitsui_ticket",
+    # サイドバー設定
+    "pax", "start_d", "start_t", "end_d", "end_t", "max_h",
+    "use_ins", "consider_biz_hours", "fuel_calc_mode", "max_dist", "selected_comps"
+]
+for k in keys_to_save:
+    if k in st.session_state:
+        st.session_state.saved_state[k] = st.session_state[k]
