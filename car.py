@@ -130,8 +130,14 @@ def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
         discount=total
         total=0
     if return_breakdown:
-        return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円・割引: {(-1*discount):,}円"
-    return total
+        # マップクリック時（詳細表示）: 単一の数値なので通常の比較関数が使える
+        applied_discount = min(total, discount)
+        total = total - applied_discount
+        return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円\n・割引: -{int(applied_discount):,}円"
+    else:
+        # マップ全体計算時: NumPy配列なので np.maximum でマイナスを0に丸める
+        total = np.maximum(0, total - discount)
+        return total
 
 def calc_orix_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['orix_s']['normal']
