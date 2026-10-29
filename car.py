@@ -452,10 +452,10 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     else: s = 'normal'
     p = params['toyota_r'][s]
     num = [p['p_3h'], p['p_6h'], p['p_12h'], p['p_24h'], p['p_ex_day'], p['p_ex_hr']]
-    base=[0,0]
-    gas=[0,0]
-    ins=[0,0]
-    total=[0,0]
+    base = [0, 0]
+    gas = [0, 0]
+    ins = [0, 0]
+    
     if th <= 3: base[0] = num[0]
     elif th <= 6: base[0] = num[1]
     elif th <= 12: base[0] = num[2]
@@ -463,19 +463,14 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
     else: base[0] = num[3] + ((th // 24) - 1) * num[4] + min((th % 24) * num[5], num[4])
     gas[0] = (d / p['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
     ins[0] = days * p['p_ins'] if use_ins else 0
-    #学割
+    
+    # 学割
     if th <= 12: base[1] = params['toyota_r']['student']['p_12h']
     elif th <= 24: base[1] = params['toyota_r']['student']['p_24h']
     else: base[1] = (((th-24)//24)+1)* params['toyota_r']['student']['p_ex_day']+params['toyota_r']['student']['p_24h']
-    gas[1]=(d / params['toyota_r']['student']['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
-    ins[1]=days * params['toyota_r']['student']['p_ins'] if use_ins else 0
+    gas[1] = (d / params['toyota_r']['student']['fuel_efficiency']) * GAS_PRICE if fuel_calc_mode==1 else (d / FUEL_EFFICIENCY) * GAS_PRICE
+    ins[1] = days * params['toyota_r']['student']['p_ins'] if use_ins else 0
 
-    is_student=0
-    total[0]=base[0]+gas[0]+ins[0]
-    total[1]=base[1]+gas[1]+ins[1]
-    if(total[0]>total[1]):
-        is_student=1
-        
     end_dt = start_dt + timedelta(hours=float(h))
     if consider_biz_hours and ((start_dt.hour < p['open_time']) or (end_dt.hour > p['close_time']) or (end_dt.hour < p['open_time'])):
         if return_breakdown: return 9999999999, "営業時間外です。"
@@ -483,29 +478,45 @@ def calc_toyota_rent(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_c
         
     pct, yen, label, _, _, _ = get_discount_vals('toyota_r', active_discounts)
     
+    # 🗺️ ルート分岐（詳細明細用 vs マップ一括描画用）
     if return_breakdown: 
+        # ①【詳細表示用（単一の数値）】
+        total0 = base[0] + gas[0] + ins[0]
+        total1 = base[1] + gas[1] + ins[1]
+        is_student = 1 if total0 > total1 else 0
+
         discount_amount = base[is_student] * (pct / 100.0) + yen
         applied_discount = min(base[is_student], discount_amount)
         base[is_student] -= applied_discount
 
         bd = f"・基本"
         if (s=='special' or s=='winter'):
-            bd+=f"(ハイシーズン料金)"
-        if is_student==0:
-            bd+=f"(学割より通常料金が安いです)"
+            bd += f"(ハイシーズン料金)"
+        if is_student == 0:
+            bd += f"(学割より通常料金が安いです)"
         else:
-            bd+=f"(通常料金より学割が安いです)"
+            bd += f"(通常料金より学割が安いです)"
             
-        bd+=f": {int(base[is_student] + applied_discount):,}円\n"
+        bd += f": {int(base[is_student] + applied_discount):,}円\n"
         if applied_discount > 0: 
             lbl = label if label else "割引"
             bd += f"・{lbl}: -{int(applied_discount):,}円\n"
         bd += f"・ガソリン: {int(gas[is_student]):,}円\n・補償料: {int(ins[is_student]):,}円"
-        return total[is_student] - applied_discount, bd
+        
+        return (base[is_student] + gas[is_student] + ins[is_student]), bd
+        
     else:
-        discount_amount = base[is_student] * (pct / 100.0) + yen
-        base_discounted = np.maximum(0, base[is_student] - discount_amount)
-        return base_discounted + gas[is_student] + ins[is_student]
+        # ②【マップ描画用（3600個の配列データ）】
+        # 通常と学割を両方最後まで計算してから np.minimum で安い方を一括抽出する
+        discount_amount0 = base[0] * (pct / 100.0) + yen
+        base0_discounted = np.maximum(0, base[0] - discount_amount0)
+        total0_array = base0_discounted + gas[0] + ins[0]
+        
+        discount_amount1 = base[1] * (pct / 100.0) + yen
+        base1_discounted = np.maximum(0, base[1] - discount_amount1)
+        total1_array = base1_discounted + gas[1] + ins[1]
+        
+        return np.minimum(total0_array, total1_array)
 
 def calc_uqey(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['uqey']['normal']
