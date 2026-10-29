@@ -36,20 +36,31 @@ if "discounts_initialized" not in st.session_state:
     st.session_state.discounts_initialized = True
 
 def update_discount_params():
+    # ダイアログ内のUI用変数(_ui_...)から、永久保存用の変数へ値をコピーして守る
+    st.session_state.d_toyota = st.session_state.get("_ui_d_toyota", st.session_state.d_toyota)
+    st.session_state.d_nissan = st.session_state.get("_ui_d_nissan", st.session_state.d_nissan)
+    st.session_state.d_orix = st.session_state.get("_ui_d_orix", st.session_state.d_orix)
+    st.session_state.d_nippon = st.session_state.get("_ui_d_nippon", st.session_state.d_nippon)
+
+    st.session_state.d_times_refuel = st.session_state.get("_ui_d_times_refuel", st.session_state.d_times_refuel)
+    st.session_state.d_times_wash = st.session_state.get("_ui_d_times_wash", st.session_state.d_times_wash)
+    st.session_state.d_times_ticket = st.session_state.get("_ui_d_times_ticket", st.session_state.d_times_ticket)
+
+    st.session_state.d_mitsui_refuel = st.session_state.get("_ui_d_mitsui_refuel", st.session_state.d_mitsui_refuel)
+    st.session_state.d_mitsui_wash = st.session_state.get("_ui_d_mitsui_wash", st.session_state.d_mitsui_wash)
+    st.session_state.d_mitsui_ticket = st.session_state.get("_ui_d_mitsui_ticket", st.session_state.d_mitsui_ticket)
+
+    # URLパラメータに同期
     st.query_params["d_toyota"] = str(st.session_state.d_toyota)
     st.query_params["d_nissan"] = str(st.session_state.d_nissan)
     st.query_params["d_orix"] = str(st.session_state.d_orix)
     st.query_params["d_nippon"] = str(st.session_state.d_nippon)
-
     st.query_params["d_times_refuel"] = str(st.session_state.d_times_refuel)
     st.query_params["d_times_wash"] = str(st.session_state.d_times_wash)
     st.query_params["d_times_ticket"] = str(st.session_state.d_times_ticket)
-
-    # ⬇️ 三井用の3つを追加
     st.query_params["d_mitsui_refuel"] = str(st.session_state.d_mitsui_refuel)
     st.query_params["d_mitsui_wash"] = str(st.session_state.d_mitsui_wash)
     st.query_params["d_mitsui_ticket"] = str(st.session_state.d_mitsui_ticket)
-
 if "sync_init" not in st.session_state:
     now = datetime.now(ZoneInfo("Asia/Tokyo"))
     st.session_state.start_d = now.date()
@@ -489,7 +500,7 @@ def settings_dialog():
             with c5:
                 st.markdown("<div style='font-weight: bold;'>🎫 プラスeチケット</div><div style='font-size: 0.8rem; color: #aaa;'>割引される時間（分）を入力してください</div>", unsafe_allow_html=True)
             with c6:
-                st.number_input("割引時間(分)", min_value=0, max_value=720, step=15, key="d_times_ticket", on_change=update_discount_params, label_visibility="collapsed")
+                st.number_input("割引(円)", min_value=0, max_value=100000, step=1, key="d_times_ticket", on_change=update_discount_params, label_visibility="collapsed")
                 
     def draw_mitsui_setting_card():
         with st.container(border=True):
@@ -520,7 +531,7 @@ def settings_dialog():
             with c5:
                 st.markdown("<div style='font-weight: bold;'>🎫 クーポン利用</div><div style='font-size: 0.8rem; color: #aaa;'>割引される金額（円）を入力してください</div>", unsafe_allow_html=True)
             with c6:
-                st.number_input("割引金額(円)", min_value=0, max_value=10000, step=100, key="d_mitsui_ticket", on_change=update_discount_params, label_visibility="collapsed")
+                st.number_input("割引(円)", min_value=0, max_value=100000, step=1, key="d_mitsui_ticket", on_change=update_discount_params, label_visibility="collapsed")
                 
     def draw_info_card(title, desc, color):
         with st.container(border=True):
