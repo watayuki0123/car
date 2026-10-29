@@ -529,6 +529,10 @@ def settings_dialog():
 st.title("北海道レンタカー・カーシェア最安値マップ")
 
 if st.button("⚙️ 詳細設定を開く"):
+    # ▼▼ バツボタン(×)で閉じた時対策：ダイアログを開く直前にUIキャッシュを綺麗にする ▼▼
+    for key in list(st.session_state.keys()):
+        if key.startswith("_ui_"):
+            del st.session_state[key]
     settings_dialog()
 
 st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。")
