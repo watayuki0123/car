@@ -11,14 +11,7 @@ st.set_page_config(page_title="レンタカー最安値マップ", layout="wide"
 
 GAS_PRICE, FUEL_EFFICIENCY = 167, 20
 GRID_SIZE = 60
-# ▼▼▼ 追加：0. 画面遷移時の状態リセットを防ぐための復元処理 ▼▼▼
-if "saved_state" not in st.session_state:
-    st.session_state.saved_state = {}
 
-# 直前の状態で保存されていたものを復元する
-for k, v in st.session_state.saved_state.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
 # ==========================================
 # 1. 状態保持（Session State）とコールバック関数（一番外側に書く！）
 # ==========================================
@@ -418,14 +411,13 @@ def generate_map_data(max_hours, max_dist, start_dt, use_ins, selected_comps_tup
 
 
 # ==========================================
-# 3. 設定画面（全画面表示）
+# 3. ポップアップ設定画面 (Dialog)
 # ==========================================
-if st.session_state.current_page == "settings":
-    st.title("⚙️ 詳細設定")
+@st.dialog("⚙️ 詳細設定", width="large")
+def settings_dialog():
     st.markdown("適用する割引をONにしてください。（設定は自動で保存され、再読み込みしても引き継がれます）")
-    st.write("") # 少し余白をあける
+    st.write("")
 
-    # 設定画面専用のCSS（カードの角丸化とホバー時の浮き上がりアニメーション）
     st.markdown("""
     <style>
     div[data-testid="stContainer"] {
@@ -440,13 +432,10 @@ if st.session_state.current_page == "settings":
     </style>
     """, unsafe_allow_html=True)
 
-    # プレート（カード）を描画する共通関数
     def draw_setting_card(title, desc, key, color):
         with st.container(border=True):
-            # 左側に文字、右側にトグルを配置するレイアウト
             c1, c2 = st.columns([5, 1])
             with c1:
-                # 左端のカラーラインと文字の装飾
                 st.markdown(f"""
                 <div style="border-left: 6px solid {color}; padding-left: 16px; margin: 4px 0;">
                     <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 4px;">{title}</div>
@@ -454,14 +443,11 @@ if st.session_state.current_page == "settings":
                 </div>
                 """, unsafe_allow_html=True)
             with c2:
-                # トグルの高さを左のテキストと中央揃えにするための余白
                 st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
-                # ラベルを非表示（collapsed）にしてスイッチ単体だけをスタイリッシュに置く
                 st.toggle("適用", key=key, on_change=update_discount_params, label_visibility="collapsed")
 
     def draw_times_setting_card():
         with st.container(border=True):
-            # カードのタイトルと装飾
             st.markdown(f"""
             <div style="border-left: 6px solid #1f77b4; padding-left: 16px; margin-bottom: 16px;">
                 <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 4px;">タイムズカー (青) 割引設定</div>
@@ -469,38 +455,30 @@ if st.session_state.current_page == "settings":
             </div>
             """, unsafe_allow_html=True)
             
-            # 1. 給油割引
             c1, c2 = st.columns([4, 1])
             with c1:
                 st.markdown("<div style='font-weight: bold;'>⛽ 給油割引</div><div style='font-size: 0.8rem; color: #aaa;'>20L以上の給油で 30分の料金割引</div>", unsafe_allow_html=True)
             with c2:
                 st.markdown("<div style='margin-top: 4px;'></div>", unsafe_allow_html=True)
                 st.toggle("給油割引", key="d_times_refuel", on_change=update_discount_params, label_visibility="collapsed")
-            
-            # 区切り線
             st.markdown("<hr style='margin: 12px 0; border: none; border-top: 1px solid #444;'>", unsafe_allow_html=True)
             
-            # 2. 洗車割引
             c3, c4 = st.columns([4, 1])
             with c3:
                 st.markdown("<div style='font-weight: bold;'>🧽 水洗い洗車割引</div><div style='font-size: 0.8rem; color: #aaa;'>水洗い洗車報告で 30分の料金割引</div>", unsafe_allow_html=True)
             with c4:
                 st.markdown("<div style='margin-top: 4px;'></div>", unsafe_allow_html=True)
                 st.toggle("洗車割引", key="d_times_wash", on_change=update_discount_params, label_visibility="collapsed")
-                
-            # 区切り線
             st.markdown("<hr style='margin: 12px 0; border: none; border-top: 1px solid #444;'>", unsafe_allow_html=True)
             
-            # 3. クーポン(eチケット)入力
             c5, c6 = st.columns([3, 2])
             with c5:
                 st.markdown("<div style='font-weight: bold;'>🎫 プラスeチケット</div><div style='font-size: 0.8rem; color: #aaa;'>割引される時間（分）を入力してください</div>", unsafe_allow_html=True)
             with c6:
-                # タイムズは15分単位の課金が多いので、step=15にしています
                 st.number_input("割引時間(分)", min_value=0, max_value=720, step=15, key="d_times_ticket", on_change=update_discount_params, label_visibility="collapsed")
+                
     def draw_mitsui_setting_card():
         with st.container(border=True):
-            # カードのタイトルと装飾（色は三井の緑 #2ca02c）
             st.markdown(f"""
             <div style="border-left: 6px solid #2ca02c; padding-left: 16px; margin-bottom: 16px;">
                 <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 4px;">三井のシェア (緑) 割引設定</div>
@@ -508,33 +486,28 @@ if st.session_state.current_page == "settings":
             </div>
             """, unsafe_allow_html=True)
             
-            # 1. 給油割引
             c1, c2 = st.columns([4, 1])
             with c1:
                 st.markdown("<div style='font-weight: bold;'>⛽ 給油割引</div><div style='font-size: 0.8rem; color: #aaa;'>給油によるクーポン付与・割引</div>", unsafe_allow_html=True)
             with c2:
                 st.markdown("<div style='margin-top: 4px;'></div>", unsafe_allow_html=True)
                 st.toggle("給油割引", key="d_mitsui_refuel", on_change=update_discount_params, label_visibility="collapsed")
-            
             st.markdown("<hr style='margin: 12px 0; border: none; border-top: 1px solid #444;'>", unsafe_allow_html=True)
             
-            # 2. 洗車割引
             c3, c4 = st.columns([4, 1])
             with c3:
                 st.markdown("<div style='font-weight: bold;'>🧽 洗車割引</div><div style='font-size: 0.8rem; color: #aaa;'>洗車報告によるクーポン付与・割引</div>", unsafe_allow_html=True)
             with c4:
                 st.markdown("<div style='margin-top: 4px;'></div>", unsafe_allow_html=True)
                 st.toggle("洗車割引", key="d_mitsui_wash", on_change=update_discount_params, label_visibility="collapsed")
-                
             st.markdown("<hr style='margin: 12px 0; border: none; border-top: 1px solid #444;'>", unsafe_allow_html=True)
             
-            # 3. クーポン(金額)入力
             c5, c6 = st.columns([3, 2])
             with c5:
                 st.markdown("<div style='font-weight: bold;'>🎫 クーポン利用</div><div style='font-size: 0.8rem; color: #aaa;'>割引される金額（円）を入力してください</div>", unsafe_allow_html=True)
             with c6:
-                # 三井は金額での割引が多いので step=100 円単位に設定
                 st.number_input("割引金額(円)", min_value=0, max_value=10000, step=100, key="d_mitsui_ticket", on_change=update_discount_params, label_visibility="collapsed")
+                
     def draw_info_card(title, desc, color):
         with st.container(border=True):
             st.markdown(f"""
@@ -543,265 +516,249 @@ if st.session_state.current_page == "settings":
                 <div style="font-size: 0.9rem; color: #aaaaaa;">{desc}</div>
             </div>
             """, unsafe_allow_html=True)
-    # 各社のプレートを描画（左端のライン色はマップのテーマカラーと完全に統一）
+
     draw_times_setting_card()
     draw_mitsui_setting_card()
     draw_setting_card("オリックスシェア", "6時間以内の通常利用（15分単位の精算）のときだけ15分分の割引があります", "d_toyota", "#34495e")
     draw_info_card("日産レンタカー", "おおよそ30%引きとして計算しています。", "#bcbd22")
     draw_info_card("ニッポンレンタカー", "三井のカーシェア経由でおおよそ17%引きになるためそれで計算しています", "#8c564b")
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("◀ マップに戻る", type="primary"):
-        st.session_state.current_page = "main"
+    if st.button("◀ 閉じる", type="primary"):
         st.rerun()
         
-elif st.session_state.current_page == "main":
-    st.title("北海道レンタカー・カーシェア最安値マップ")
-    
-    # 設定画面への遷移ボタン
-    if st.button("⚙️ 全画面の設定を開く"):
-        st.session_state.current_page = "settings"
-        st.rerun()
+st.title("北海道レンタカー・カーシェア最安値マップ")
 
-    st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。")
+if st.button("⚙️ 詳細設定を開く"):
+    settings_dialog()
 
-    # === 計算用にONになっている割引と数値を文字列のリストとしてまとめる ===
-    discounts = []
+st.markdown("サイドバーで条件変更。マップの任意の場所をクリックすると下部に各社の詳細な計算式と内訳が瞬時に表示されます。")
+
+# === 計算用にONになっている割引と数値を文字列のリストとしてまとめる ===
+discounts = []
+
+if st.session_state.get('d_toyota'): discounts.append('toyota_gakuwari')
+if st.session_state.get('d_nissan'): discounts.append('nissan_self')
+if st.session_state.get('d_orix'): discounts.append('orix_member')
+if st.session_state.get('d_nippon'): discounts.append('nippon_mitsui')
+
+# タイムズ・三井のON/OFF
+if st.session_state.get('d_times_refuel'): discounts.append('times_refuel')
+if st.session_state.get('d_times_wash'): discounts.append('times_wash')
+if st.session_state.get('d_mitsui_refuel'): discounts.append('mitsui_refuel')
+if st.session_state.get('d_mitsui_wash'): discounts.append('mitsui_wash')
+
+# 数値（チケット等）は「名前_数値」という文字列にして格納する（キャッシュ対応のため）
+if st.session_state.get('d_times_ticket', 0) > 0:
+    discounts.append(f"times_ticket_{st.session_state.d_times_ticket}")
+if st.session_state.get('d_mitsui_ticket', 0) > 0:
+    discounts.append(f"mitsui_ticket_{st.session_state.d_mitsui_ticket}")
     
-    if st.session_state.get('d_toyota'): discounts.append('toyota_gakuwari')
-    if st.session_state.get('d_nissan'): discounts.append('nissan_self')
-    if st.session_state.get('d_orix'): discounts.append('orix_member')
-    if st.session_state.get('d_nippon'): discounts.append('nippon_mitsui')
+# 最後に frozenset に変換する
+active_discounts = frozenset(discounts)
+
+# 既存のサイドバーのコードをそのままここに置く
+with st.sidebar:
+    st.header("⚙️条件")
+    pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3, key="pax")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.date_input("出発日", key="start_d", on_change=sync_from_start)
+    with col2:
+        st.time_input("出発時刻", key="start_t", on_change=sync_from_start)
+    start_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
+    col3, col4 = st.columns(2)
+    with col3:
+        st.date_input("返却日", key="end_d", on_change=sync_from_end)
+    with col4:
+        st.time_input("返却時刻", key="end_t", on_change=sync_from_end)
+    st.caption("返却時刻と最大時間は連動します。")
+    max_hours = st.number_input(
+        "最大時間(h)", min_value=12, max_value=720, step=12,
+        key="max_h", on_change=sync_from_hours
+    )
+    use_ins = st.toggle("フルサポート保険", value=True, key="use_ins")
+    consider_biz_hours = st.toggle("営業時間を考慮する", value=True, key=" consider_biz_hours")
+    options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
+    fuel_calc_mode = st.radio(
+        "ガソリン代の計算方式",
+        options=range(len(options_text)),
+        format_func=lambda x: options_text[x],
+        index=0,
+        key="fuel_calc_mode"
+    )
+    max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100)
     
-    # タイムズ・三井のON/OFF
-    if st.session_state.get('d_times_refuel'): discounts.append('times_refuel')
-    if st.session_state.get('d_times_wash'): discounts.append('times_wash')
-    if st.session_state.get('d_mitsui_refuel'): discounts.append('mitsui_refuel')
-    if st.session_state.get('d_mitsui_wash'): discounts.append('mitsui_wash')
-    
-    # 数値（チケット等）は「名前_数値」という文字列にして格納する（キャッシュ対応のため）
-    if st.session_state.get('d_times_ticket', 0) > 0:
-        discounts.append(f"times_ticket_{st.session_state.d_times_ticket}")
-    if st.session_state.get('d_mitsui_ticket', 0) > 0:
-        discounts.append(f"mitsui_ticket_{st.session_state.d_mitsui_ticket}")
-        
-    # 最後に frozenset に変換する
-    active_discounts = frozenset(discounts)
-    
-    # 既存のサイドバーのコードをそのままここに置く
-    with st.sidebar:
-        st.header("⚙️条件")
-        pax = st.selectbox("乗車人数", [2, 3, 4, 5, 6, 7, 8], index=3, key="pax")
-    
-        col1, col2 = st.columns(2)
-        with col1:
-            st.date_input("出発日", key="start_d", on_change=sync_from_start)
-        with col2:
-            st.time_input("出発時刻", key="start_t", on_change=sync_from_start)
-        start_dt = datetime.combine(st.session_state.start_d, st.session_state.start_t)
-        col3, col4 = st.columns(2)
-        with col3:
-            st.date_input("返却日", key="end_d", on_change=sync_from_end)
-        with col4:
-            st.time_input("返却時刻", key="end_t", on_change=sync_from_end)
-        st.caption("返却時刻と最大時間は連動します。")
-        max_hours = st.number_input(
-            "最大時間(h)", min_value=12, max_value=720, step=12,
-            key="max_h", on_change=sync_from_hours
-        )
-        use_ins = st.toggle("フルサポート保険", value=True, key="use_ins")
-        consider_biz_hours = st.toggle("営業時間を考慮する", value=True, key=" consider_biz_hours")
-        options_text=["固定燃費 (165円/L・20km/L)", "Excelの実燃費データに従う"]
-        fuel_calc_mode = st.radio(
-            "ガソリン代の計算方式",
-            options=range(len(options_text)),
-            format_func=lambda x: options_text[x],
-            index=0,
-            key="fuel_calc_mode"
-        )
-        max_dist = st.number_input("最大距離(km)", 100, 5000, 1000, 100)
-        
-        selected_comps = st.multiselect(
-            "比較会社",
-            options=list(all_companies.keys()),
-            default=list(all_companies.keys()),
-            format_func=lambda x: all_companies[x]['label']
-        )
-    params = load_parameters("parameters.xlsx", pax)
-    if not params:
-        st.error("Excelエラー")
-        st.stop()
-    
-    # マップクリック時はこのフラグメント内のみ部分更新し、全体の再実行を防ぐ
-    @st.fragment
-    def render_map_and_details():
-        if not selected_comps:
-            st.warning("会社を選択してください")
-            return
-    
-        H, D, Z_winner, hover_text, active_colors, names_array = generate_map_data(
-            max_hours, max_dist, start_dt, use_ins, tuple(selected_comps), consider_biz_hours, fuel_calc_mode, pax, active_discounts
-        )
-    
-        sel_h, sel_d = None, None
-        if "map_chart" in st.session_state:
-            pts = st.session_state["map_chart"].get("selection", {}).get("points", [])
-            if pts:
-                sel_h, sel_d = pts[0]["x"], pts[0]["y"]
-    
-        N = len(active_colors)
-        colorscale = []
-        for i, c in enumerate(active_colors):
-            colorscale += [[i / N, c], [(i + 1) / N, c]]
-    
-        fig = go.Figure()
-        fig.add_trace(go.Heatmap(
-            x=H[0, :], y=D[:, 0], z=Z_winner,
-            colorscale=colorscale, zmin=-0.5, zmax=N - 0.5, showscale=True,
-            colorbar=dict(title="<b>最安値</b>", tickmode="array", tickvals=np.arange(N), ticktext=names_array),
-            hoverinfo="skip", hovertemplate=None
-        ))
+    selected_comps = st.multiselect(
+        "比較会社",
+        options=list(all_companies.keys()),
+        default=list(all_companies.keys()),
+        format_func=lambda x: all_companies[x]['label']
+    )
+params = load_parameters("parameters.xlsx", pax)
+if not params:
+    st.error("Excelエラー")
+    st.stop()
+
+# マップクリック時はこのフラグメント内のみ部分更新し、全体の再実行を防ぐ
+@st.fragment
+def render_map_and_details():
+    if not selected_comps:
+        st.warning("会社を選択してください")
+        return
+
+    H, D, Z_winner, hover_text, active_colors, names_array = generate_map_data(
+        max_hours, max_dist, start_dt, use_ins, tuple(selected_comps), consider_biz_hours, fuel_calc_mode, pax, active_discounts
+    )
+
+    sel_h, sel_d = None, None
+    if "map_chart" in st.session_state:
+        pts = st.session_state["map_chart"].get("selection", {}).get("points", [])
+        if pts:
+            sel_h, sel_d = pts[0]["x"], pts[0]["y"]
+
+    N = len(active_colors)
+    colorscale = []
+    for i, c in enumerate(active_colors):
+        colorscale += [[i / N, c], [(i + 1) / N, c]]
+
+    fig = go.Figure()
+    fig.add_trace(go.Heatmap(
+        x=H[0, :], y=D[:, 0], z=Z_winner,
+        colorscale=colorscale, zmin=-0.5, zmax=N - 0.5, showscale=True,
+        colorbar=dict(title="<b>最安値</b>", tickmode="array", tickvals=np.arange(N), ticktext=names_array),
+        hoverinfo="skip", hovertemplate=None
+    ))
+    fig.add_trace(go.Scatter(
+        x=H.flatten(), y=D.flatten(), mode='markers',
+        marker=dict(color='rgba(0,0,0,0)', size=8),
+        customdata=hover_text.flatten(),
+        hovertemplate="<b>利用時間: %{x:.1f}h / 距離: %{y:.0f}km</b><br>---<br>%{customdata}<extra></extra>",
+        showlegend=False
+    ))
+    if sel_h is not None and sel_d is not None:
         fig.add_trace(go.Scatter(
-            x=H.flatten(), y=D.flatten(), mode='markers',
-            marker=dict(color='rgba(0,0,0,0)', size=8),
-            customdata=hover_text.flatten(),
-            hovertemplate="<b>利用時間: %{x:.1f}h / 距離: %{y:.0f}km</b><br>---<br>%{customdata}<extra></extra>",
-            showlegend=False
+            x=[sel_h], y=[sel_d], mode='markers+text',
+            marker=dict(color='#ff2b2b', size=16, line=dict(color='white', width=2)),
+            text=['📍'], textfont=dict(size=36), textposition='top center',
+            hoverinfo='skip', showlegend=False
         ))
-        if sel_h is not None and sel_d is not None:
-            fig.add_trace(go.Scatter(
-                x=[sel_h], y=[sel_d], mode='markers+text',
-                marker=dict(color='#ff2b2b', size=16, line=dict(color='white', width=2)),
-                text=['📍'], textfont=dict(size=36), textposition='top center',
-                hoverinfo='skip', showlegend=False
-            ))
-    
-        fig.update_layout(
-            xaxis_title="利用時間(時間)", yaxis_title="想定距離(km)",
-            height=650, margin=dict(l=40, r=10, t=40, b=40), clickmode="event+select"
-        )
-        st.plotly_chart(
-            fig, use_container_width=True, on_select="rerun",
-            selection_mode="points", key="map_chart", config={'displayModeBar': False}
-        )
-    
-        if sel_h is not None and sel_d is not None:
-            st.markdown("---")
-            st.subheader(f"📍 料金詳細 (利用時間: {sel_h:.1f}h / 距離: {sel_d:.0f}km)")
-            bds = []
-            for c_key in selected_comps:
-                c = all_companies[c_key]
-                pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, True)
-                bds.append((pr, c['label'], tx, c['color']))
-            bds.sort(key=lambda x: x[0])
-            
-            # --- カスタムCSSの定義 ---
-            st.markdown("""
-            <style>
-            .price-card {
-                background-color: #1e1e1e;
-                border-radius: 12px;
-                padding: 16px 24px;
-                margin-bottom: 12px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-                border-left: 8px solid transparent;
-                transition: transform 0.2s ease;
-            }
-            .price-card:hover {
-                transform: translateX(4px);
-            }
-            .rank-winner {
-                border-left-color: #ffd700; /* 1位はゴールド */
-                background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(30,30,30,1) 100%);
-            }
-            .card-left {
-                flex: 1;
-            }
-            .card-right {
-                text-align: right;
-                min-width: 150px;
-            }
-            .comp-name {
-                font-size: 1.2rem;
-                font-weight: bold;
-                color: #ffffff;
-                margin-bottom: 4px;
-            }
-            .breakdown {
-                font-size: 0.85rem;
-                color: #aaaaaa;
-                white-space: pre-wrap;
-            }
-            .total-price {
-                font-size: 1.8rem;
-                font-weight: 800;
-                color: #ffffff;
-            }
-            .split-price {
-                font-size: 0.9rem;
-                color: #888888;
-            }
-            .rank-badge {
-                display: inline-block;
-                padding: 2px 8px;
-                border-radius: 4px;
-                font-size: 0.8rem;
-                font-weight: bold;
-                margin-right: 8px;
-            }
-            </style>
-            """, unsafe_allow_html=True)
 
-            # --- カードの描画 ---
-            for i, (pr, lb, tx, color) in enumerate(bds):
-                # 営業時間外などのエラー値(9999999999)の判定
-                if pr >= 9999999999:
-                    pr_str = "利用不可"
-                    split_str = "営業時間外"
-                else:
-                    pr_str = f"¥{int(pr):,}"
-                    split_str = f"1人あたり: ¥{int(pr) // pax:,}"
+    fig.update_layout(
+        xaxis_title="利用時間(時間)", yaxis_title="想定距離(km)",
+        height=650, margin=dict(l=40, r=10, t=40, b=40), clickmode="event+select"
+    )
+    st.plotly_chart(
+        fig, use_container_width=True, on_select="rerun",
+        selection_mode="points", key="map_chart", config={'displayModeBar': False}
+    )
 
-                # 1位だけ特別な装飾にする
-                winner_class = "rank-winner" if i == 0 else ""
-                badge_bg = "#ffd700" if i == 0 else "#444444"
-                badge_text = "#000000" if i == 0 else "#ffffff"
-                rank_str = "👑 1位" if i == 0 else f"{i+1}位"
+    if sel_h is not None and sel_d is not None:
+        st.markdown("---")
+        st.subheader(f"📍 料金詳細 (利用時間: {sel_h:.1f}h / 距離: {sel_d:.0f}km)")
+        bds = []
+        for c_key in selected_comps:
+            c = all_companies[c_key]
+            pr, tx = c['func'](sel_h, sel_d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, True)
+            bds.append((pr, c['label'], tx, c['color']))
+        bds.sort(key=lambda x: x[0])
+        
+        # --- カスタムCSSの定義 ---
+        st.markdown("""
+        <style>
+        .price-card {
+            background-color: #1e1e1e;
+            border-radius: 12px;
+            padding: 16px 24px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-left: 8px solid transparent;
+            transition: transform 0.2s ease;
+        }
+        .price-card:hover {
+            transform: translateX(4px);
+        }
+        .rank-winner {
+            border-left-color: #ffd700; /* 1位はゴールド */
+            background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(30,30,30,1) 100%);
+        }
+        .card-left {
+            flex: 1;
+        }
+        .card-right {
+            text-align: right;
+            min-width: 150px;
+        }
+        .comp-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+        .breakdown {
+            font-size: 0.85rem;
+            color: #aaaaaa;
+            white-space: pre-wrap;
+        }
+        .total-price {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #ffffff;
+        }
+        .split-price {
+            font-size: 0.9rem;
+            color: #888888;
+        }
+        .rank-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
 
-                # 改行コードをHTMLの<br>に変換
-                tx_html = tx.replace('\n', '<br>')
+        # --- カードの描画 ---
+        for i, (pr, lb, tx, color) in enumerate(bds):
+            # 営業時間外などのエラー値(9999999999)の判定
+            if pr >= 9999999999:
+                pr_str = "利用不可"
+                split_str = "営業時間外"
+            else:
+                pr_str = f"¥{int(pr):,}"
+                split_str = f"1人あたり: ¥{int(pr) // pax:,}"
 
-                # HTMLでカードを組み立て
-                card_html = f"""
-                <div class="price-card {winner_class}" style="border-left-color: {color};">
-                    <div class="card-left">
-                        <div class="comp-name">
-                            <span class="rank-badge" style="background-color: {badge_bg}; color: {badge_text};">{rank_str}</span>
-                            {lb}
-                        </div>
-                        <div class="breakdown">{tx_html}</div>
+            # 1位だけ特別な装飾にする
+            winner_class = "rank-winner" if i == 0 else ""
+            badge_bg = "#ffd700" if i == 0 else "#444444"
+            badge_text = "#000000" if i == 0 else "#ffffff"
+            rank_str = "👑 1位" if i == 0 else f"{i+1}位"
+
+            # 改行コードをHTMLの<br>に変換
+            tx_html = tx.replace('\n', '<br>')
+
+            # HTMLでカードを組み立て
+            card_html = f"""
+            <div class="price-card {winner_class}" style="border-left-color: {color};">
+                <div class="card-left">
+                    <div class="comp-name">
+                        <span class="rank-badge" style="background-color: {badge_bg}; color: {badge_text};">{rank_str}</span>
+                        {lb}
                     </div>
-                    <div class="card-right">
-                        <div class="total-price">{pr_str}</div>
-                        <div class="split-price">{split_str}</div>
-                    </div>
+                    <div class="breakdown">{tx_html}</div>
                 </div>
-                """
-                st.markdown(card_html, unsafe_allow_html=True)
-    # 既存の generate_map_data や render_map_and_details の呼び出しコードをここに置く
-    # (※ active_discounts を忘れずに引数に渡す)
-    render_map_and_details()
-keys_to_save = [
-    # 割引設定
-    "d_toyota", "d_nissan", "d_orix", "d_nippon",
-    "d_times_refuel", "d_times_wash", "d_times_ticket",
-    "d_mitsui_refuel", "d_mitsui_wash", "d_mitsui_ticket",
-    # サイドバー設定
-    "pax", "start_d", "start_t", "end_d", "end_t", "max_h",
-    "use_ins", "consider_biz_hours", "fuel_calc_mode", "max_dist", "selected_comps"
-]
-for k in keys_to_save:
-    if k in st.session_state:
-        st.session_state.saved_state[k] = st.session_state[k]
+                <div class="card-right">
+                    <div class="total-price">{pr_str}</div>
+                    <div class="split-price">{split_str}</div>
+                </div>
+            </div>
+            """
+            st.markdown(card_html, unsafe_allow_html=True)
+# 既存の generate_map_data や render_map_and_details の呼び出しコードをここに置く
+# (※ active_discounts を忘れずに引数に渡す)
+render_map_and_details()
