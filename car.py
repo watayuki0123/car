@@ -124,16 +124,11 @@ def calc_times_car(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_cal
         if d_item.startswith('times_ticket_'):
             # "times_ticket_30" の末尾 "30" を取り出して整数にする
             discount += int(d_item.split('_')[-1])
-    if total-discount>=0:
-        total=total-discount
-    else:
-        discount=total
-        total=0
     if return_breakdown:
         # マップクリック時（詳細表示）: 単一の数値なので通常の比較関数が使える
         applied_discount = min(total, discount)
         total = total - applied_discount
-        return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円\n・割引: -{int(applied_discount):,}円"
+        return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円\n・割引(設定を確認してください): -{int(applied_discount):,}円"
     else:
         # マップ全体計算時: NumPy配列なので np.maximum でマイナスを0に丸める
         total = np.maximum(0, total - discount)
