@@ -13,6 +13,21 @@ GRID_SIZE = 60
 COMP_KEYS = ['times', 'mitsui_s', 'orix_s', 'orix_r', 'toyota_s', 'toyota_r', 'niconico', 'nippon', 'nissan', 'budget', 'uqey']
 
 # ==========================================
+# 0. 共通の割引抽出ヘルパー関数
+# ==========================================
+def get_discount_vals(comp_key, active_discounts):
+    pct, yen = 0, 0
+    refuel, wash, orix_15min = False, False, False
+    for item in active_discounts:
+        if item[0] == comp_key:
+            if item[1] == 'pct': pct = item[2]
+            elif item[1] == 'yen': yen = item[2]
+            elif item[1] == 'refuel': refuel = item[2]
+            elif item[1] == 'wash': wash = item[2]
+            elif item[1] == '15min': orix_15min = item[2]
+    return pct, yen, refuel, wash, orix_15min
+
+# ==========================================
 # 1. 状態保持（Session State）とコールバック関数
 # ==========================================
 if "current_page" not in st.session_state:
@@ -21,6 +36,7 @@ if "current_page" not in st.session_state:
 if "discounts_initialized" not in st.session_state:
     for comp in COMP_KEYS:
         st.session_state[f"d_{comp}_yen"] = 0
+        st.session_state[f"d_{comp}_pct"] = 0
         st.session_state[f"d_{comp}_refuel"] = False
         st.session_state[f"d_{comp}_wash"] = False
         st.session_state[f"d_{comp}_15min"] = False
@@ -588,7 +604,9 @@ elif st.session_state.current_page == "main":
             if pts: sel_h, sel_d = pts[0]["x"], pts[0]["y"]
 
         N = len(active_colors)
-        colorscale = [[i / N, c] for i, c in enumerate(active_colors) for _ in (0, 1)]
+        colorscale = []
+        for i, c in enumerate(active_colors):
+            colorscale += [[i / N, c], [(i + 1) / N, c]]
 
         fig = go.Figure()
         fig.add_trace(go.Heatmap(
