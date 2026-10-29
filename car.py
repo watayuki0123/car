@@ -236,7 +236,7 @@ def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc
     total = base + gas + ins + hs_charge
     if return_breakdown: 
         bd = f"・基本"
-        if not hs==0:
+        if hs!=0:
             bd+="(ハイシーズン料金)"
         bd+=f": {int(base + discount_amount):,}円\n"
         if discount_amount > 0: 
