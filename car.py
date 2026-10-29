@@ -188,9 +188,23 @@ def calc_mitsui_share(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_
     dist_charge = d * (p['p_dist'] if th > 6 else 0)
     ins_charge = math.ceil(th / 24) * p['p_ins'] if use_ins else 0
     total = time_charge + dist_charge + ins_charge
+    discount = 0
+    if 'mitsui_refuel' in active_discounts: discount += p['p_hr1']/2
+    if 'mitsui_wash' in active_discounts: discount += p['p_hr1']/2
+    # ▼ チケット（時間）の抽出と計算
+    for d_item in active_discounts:
+        if d_item.startswith('mitsui_ticket_'):
+            # "times_ticket_30" の末尾 "30" を取り出して整数にする
+            discount += int(d_item.split('_')[-1])
     if return_breakdown:
-        return total, f"・時間料金: {int(time_charge):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円"
-    return total
+        # マップクリック時（詳細表示）: 単一の数値なので通常の比較関数が使える
+        applied_discount = min(total, discount)
+        total = total - applied_discount
+        return total, f"・基本(時間): {int(base):,}円\n・距離料金: {int(dist_charge):,}円\n・補償料: {int(ins_charge):,}円\n・割引(設定を確認してください): -{int(applied_discount):,}円"
+    else:
+        # マップ全体計算時: NumPy配列なので np.maximum でマイナスを0に丸める
+        total = np.maximum(0, total - discount)
+        return total
 
 def calc_niconico(h, d, start_dt, use_ins, params, consider_biz_hours, fuel_calc_mode, active_discounts, return_breakdown=False):
     p = params['niconico']['normal']
