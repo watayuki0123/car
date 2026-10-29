@@ -525,6 +525,7 @@ if st.session_state.current_page == "settings":
         draw_discount_card("nissan", "日産レンタカー (黄緑)", "セルフライドゴー・e-シェアモビ想定で20%引きで計算しています", "#bcbd22", [])
         draw_discount_card("niconico", "ニコニコ (橙)", "クーポンの割引などを適用します", "#ff7f0e", [])
         draw_discount_card("uqey", "Uqey (桃)", "クーポンの割引などを適用します", "#e377c2", [])
+
         
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("◀ マップに戻る", type="primary", use_container_width=True):
@@ -604,7 +605,9 @@ elif st.session_state.current_page == "main":
             if pts: sel_h, sel_d = pts[0]["x"], pts[0]["y"]
 
         N = len(active_colors)
-        colorscale = [[i / N, c] for i, c in enumerate(active_colors) for _ in (0, 1)]
+        colorscale = []
+        for i, c in enumerate(active_colors):
+            colorscale += [[i / N, c], [(i + 1) / N, c]]
 
         fig = go.Figure()
         fig.add_trace(go.Heatmap(
