@@ -549,6 +549,10 @@ def settings_dialog():
     draw_info_card("ニッポンレンタカー", "三井のカーシェア経由でおおよそ17%引きになるためそれで計算しています", "#8c564b")
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("◀ 閉じる", type="primary"):
+        # ▼▼ 表示用キャッシュのお掃除処理（次回開く時に正しい値をセットするため） ▼▼
+        for key in list(st.session_state.keys()):
+            if key.startswith("_ui_"):
+                del st.session_state[key]
         st.rerun()
         
 st.title("北海道レンタカー・カーシェア最安値マップ")
