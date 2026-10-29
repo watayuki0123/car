@@ -424,7 +424,6 @@ def compute_all_matrices(max_hours, max_dist, start_dt, use_ins, consider_biz_ho
     H, D = np.meshgrid(h_vec, d_vec)
     matrices = {}
     
-    # 辞書化して関数ごとのパース処理を省き高速化
     disc_dict = {k: {'yen':0, 'refuel':False, 'wash':False, '15min':False} for k in COMP_KEYS}
     for item in active_discounts:
         comp, dtype, val = item
@@ -488,11 +487,12 @@ if st.session_state.current_page == "settings":
     </style>
     """, unsafe_allow_html=True)
 
-    def draw_discount_card(comp_key, title, color, features):
+    def draw_discount_card(comp_key, title, desc, color, features):
         with st.container(border=True):
             st.markdown(f"""
             <div style="border-left: 6px solid {color}; padding-left: 16px; margin-bottom: 12px;">
                 <div style="font-size: 1.1rem; font-weight: bold; margin-bottom: 2px;">{title}</div>
+                <div style="font-size: 0.85rem; color: #aaaaaa;">{desc}</div>
             </div>
             """, unsafe_allow_html=True)
             
@@ -514,17 +514,17 @@ if st.session_state.current_page == "settings":
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        draw_discount_card("times", "タイムズカー (青)", "#1f77b4", ['refuel', 'wash'])
-        draw_discount_card("mitsui_s", "三井のシェア (緑)", "#2ca02c", ['refuel', 'wash'])
-        draw_discount_card("orix_s", "オリックスシェア (水)", "#17becf", ['15min'])
-        draw_discount_card("toyota_s", "トヨタシェア (赤)", "#d62728", [])
-        draw_discount_card("orix_r", "オリックスレンタカー (紫)", "#9467bd", [])
-        draw_discount_card("toyota_r", "トヨタレンタカー (紺)", "#34495e", [])
-        draw_discount_card("budget", "バジェット (黄)", "#f1c40f", [])
-        draw_discount_card("nippon", "ニッポンレンタカー (茶)", "#8c564b", [])
-        draw_discount_card("nissan", "日産レンタカー (黄緑)", "#bcbd22", [])
-        draw_discount_card("niconico", "ニコニコ (橙)", "#ff7f0e", [])
-        draw_discount_card("uqey", "Uqey (桃)", "#e377c2", [])
+        draw_discount_card("times", "タイムズカー (青)", "給油・洗車やeチケットなどの割引を適用します", "#1f77b4", ['refuel', 'wash'])
+        draw_discount_card("mitsui_s", "三井のシェア (緑)", "給油・洗車やクーポンなどの割引を適用します", "#2ca02c", ['refuel', 'wash'])
+        draw_discount_card("orix_s", "オリックスシェア (水)", "時間割引やクーポンの割引を適用します", "#17becf", ['15min'])
+        draw_discount_card("toyota_s", "トヨタシェア (赤)", "クーポンの割引などを適用します", "#d62728", [])
+        draw_discount_card("orix_r", "オリックスレンタカー (紫)", "※あらかじめ基本料金から20%引きで計算しています", "#9467bd", [])
+        draw_discount_card("toyota_r", "トヨタレンタカー (紺)", "※通常料金と学割料金の安い方を自動で選択します", "#34495e", [])
+        draw_discount_card("budget", "バジェット (黄)", "クーポンの割引などを適用します", "#f1c40f", [])
+        draw_discount_card("nippon", "ニッポンレンタカー (茶)", "※三井カーシェア経由を想定し17%引きで計算しています", "#8c564b", [])
+        draw_discount_card("nissan", "日産レンタカー (黄緑)", "※セルフライドゴー想定で20%引きで計算しています", "#bcbd22", [])
+        draw_discount_card("niconico", "ニコニコ (橙)", "クーポンの割引などを適用します", "#ff7f0e", [])
+        draw_discount_card("uqey", "Uqey (桃)", "クーポンの割引などを適用します", "#e377c2", [])
         
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("◀ マップに戻る", type="primary", use_container_width=True):
@@ -604,9 +604,7 @@ elif st.session_state.current_page == "main":
             if pts: sel_h, sel_d = pts[0]["x"], pts[0]["y"]
 
         N = len(active_colors)
-        colorscale = []
-        for i, c in enumerate(active_colors):
-            colorscale += [[i / N, c], [(i + 1) / N, c]]
+        colorscale = [[i / N, c] for i, c in enumerate(active_colors) for _ in (0, 1)]
 
         fig = go.Figure()
         fig.add_trace(go.Heatmap(
